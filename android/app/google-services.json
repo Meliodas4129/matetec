@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "372369190316",
+    "project_id": "matetec-92c63",
+    "storage_bucket": "matetec-92c63.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:372369190316:android:f5f9e69c0f2b375e319e09",
+        "android_client_info": {
+          "package_name": "com.example.matetec"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4dRGI9U8lEQUeS9SQG9KDm-uHP44Vqh4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
