@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 // 🔴 Colores globales
 class AppColors {
@@ -63,37 +62,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       _showSnack('¡Registro exitoso! 🎉', isError: false);
+
+      if (!mounted) return;
+
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
-      await FirebaseAuth.instance.currentUser
-          ?.delete(); // evitar usuarios incompletos
+      await FirebaseAuth.instance.currentUser?.delete();
       _showSnack('Error al registrar');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // 🔥 GOOGLE LOGIN
+  // 🔥 GOOGLE LOGIN (CORRECTO PARA WEB)
   Future<void> _signInWithGoogle() async {
     try {
       setState(() => _isLoading = true);
 
-      final googleUser = await GoogleSignIn().signIn();
+      final provider = GoogleAuthProvider();
 
-      if (googleUser == null) {
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      final googleAuth = await googleUser.authentication;
-
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(
-        credential,
+      final userCredential = await FirebaseAuth.instance.signInWithPopup(
+        provider,
       );
 
       final user = userCredential.user!;
@@ -104,6 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           .doc(uid)
           .get();
 
+      // 🔥 Guardar si es nuevo usuario
       if (!doc.exists) {
         await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'nombre': user.displayName ?? 'Sin nombre',
@@ -116,6 +106,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       _showSnack('Bienvenido con Google 🚀', isError: false);
+
+      if (!mounted) return;
+
       Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       print("ERROR GOOGLE: $e");
@@ -200,7 +193,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     _buildButton(),
                     const SizedBox(height: 10),
 
-                    // 🔥 BOTÓN GOOGLE
+                    // 🔥 GOOGLE
                     ElevatedButton.icon(
                       onPressed: _signInWithGoogle,
                       icon: const Icon(Icons.login),
