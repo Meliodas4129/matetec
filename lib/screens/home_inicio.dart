@@ -11,6 +11,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _currentIndex = 0;
+
   String nombre = "Cargando...";
   String grado = "";
 
@@ -36,93 +38,140 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-
-    if (!mounted) return;
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
-  }
+  List<Widget> get _screens => [_inicio(), _progreso(), _retos(), _perfil()];
 
   @override
   Widget build(BuildContext context) {
     const rojo = Color(0xFFE53935);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F3FF),
+    return WillPopScope(
+      onWillPop: () async => false, // 🔥 bloquea botón atrás
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: rojo,
+          title: const Text('MateTec'),
+          automaticallyImplyLeading: false, // 🔥 quita flecha
+        ),
 
-      appBar: AppBar(
-        backgroundColor: rojo,
-        title: const Text('MateTec'),
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
-        ],
-      ),
+        body: _screens[_currentIndex],
 
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 👤 Bienvenida
-            Text(
-              'Hola, $nombre 👋',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          selectedItemColor: rojo,
+          unselectedItemColor: Colors.grey,
+          onTap: (index) {
+            setState(() => _currentIndex = index);
+          },
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.calculate),
+              label: 'Matemáticas',
             ),
-
-            const SizedBox(height: 5),
-
-            Text(
-              grado,
-              style: const TextStyle(fontSize: 16, color: Colors.grey),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart),
+              label: 'Progreso',
             ),
-
-            const SizedBox(height: 25),
-
-            // 🎯 Tarjetas
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-                children: [
-                  _card('Matemáticas', Icons.calculate, rojo),
-                  _card('Progreso', Icons.bar_chart, Colors.blue),
-                  _card('Retos', Icons.extension, Colors.orange),
-                  _card('Perfil', Icons.person, Colors.black),
-                ],
-              ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.extension),
+              label: 'Retos',
             ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
           ],
         ),
       ),
     );
   }
 
-  Widget _card(String title, IconData icon, Color color) {
-    return GestureDetector(
-      onTap: () {
-        // aquí luego navegas a otras pantallas
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Colors.white),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+  // 🏠 INICIO
+  Widget _inicio() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Hola, $nombre 👋',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          Text(grado),
+
+          const SizedBox(height: 30),
+
+          const Text('Selecciona un tema:', style: TextStyle(fontSize: 18)),
+
+          const SizedBox(height: 15),
+
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              children: [
+                _card('Sumas', Colors.red),
+                _card('Restas', Colors.blue),
+                _card('Multiplicación', Colors.green),
+                _card('División', Colors.orange),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 📊 PROGRESO
+  Widget _progreso() {
+    return const Center(
+      child: Text('Aquí verás tu progreso 📊', style: TextStyle(fontSize: 18)),
+    );
+  }
+
+  // 🧩 RETOS
+  Widget _retos() {
+    return const Center(
+      child: Text('Retos disponibles 🧩', style: TextStyle(fontSize: 18)),
+    );
+  }
+
+  // 👤 PERFIL
+  Widget _perfil() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text('Nombre: $nombre'),
+          Text('Grado: $grado'),
+
+          const SizedBox(height: 20),
+
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+
+              if (!mounted) return;
+
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎯 TARJETAS
+  Widget _card(String title, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Center(
+        child: Text(title, style: const TextStyle(color: Colors.white)),
       ),
     );
   }
