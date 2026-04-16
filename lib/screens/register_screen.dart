@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 // 🔴 Colores globales
 class AppColors {
@@ -37,6 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ],
   };
 
+  // 🔐 REGISTRO NORMAL
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -60,20 +62,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      if (!mounted) return;
-
       _showSnack('¡Registro exitoso! 🎉', isError: false);
       Navigator.pushReplacementNamed(context, '/home');
-    } on FirebaseAuthException catch (e) {
-      final errores = {
-        'email-already-in-use': 'El correo ya está registrado',
-        'invalid-email': 'Correo inválido',
-        'weak-password': 'Contraseña muy débil',
-        'network-request-failed': 'Sin internet',
-      };
-      _showSnack(errores[e.code] ?? 'Error: ${e.code}');
     } catch (e) {
-      _showSnack('Error al guardar datos');
+      await FirebaseAuth.instance.currentUser
+          ?.delete(); // evitar usuarios incompletos
+      _showSnack('Error al registrar');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // 🔥 GOOGLE LOGIN
+  Future<void> _signInWithGoogle() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final googleUser = await GoogleSignIn().signIn();
+
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final googleAuth = await googleUser.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
+      final user = userCredential.user!;
+      final uid = user.uid;
+
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+
+      if (!doc.exists) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'nombre': user.displayName ?? 'Sin nombre',
+          'email': user.email,
+          'grado': 'No especificado',
+          'rol': 'estudiante',
+          'progreso': {},
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      _showSnack('Bienvenido con Google 🚀', isError: false);
+      Navigator.pushReplacementNamed(context, '/home');
+    } catch (e) {
+      print("ERROR GOOGLE: $e");
+      _showSnack('Error con Google');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -117,6 +163,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Icons.person,
                       (v) => v!.isEmpty ? 'Requerido' : null,
                     ),
+
                     const SizedBox(height: 16),
 
                     _buildInput(
@@ -125,6 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Icons.email,
                       (v) => !v!.contains('@') ? 'Correo inválido' : null,
                     ),
+
                     const SizedBox(height: 16),
 
                     _buildInput(
@@ -139,17 +187,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ? Icons.visibility
                               : Icons.visibility_off,
                         ),
-                        onPressed: () {
-                          setState(() => _obscurePass = !_obscurePass);
-                        },
+                        onPressed: () =>
+                            setState(() => _obscurePass = !_obscurePass),
                       ),
                     ),
+
                     const SizedBox(height: 16),
 
                     _buildDropdown(),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 25),
 
                     _buildButton(),
+                    const SizedBox(height: 10),
+
+                    // 🔥 BOTÓN GOOGLE
+                    ElevatedButton.icon(
+                      onPressed: _signInWithGoogle,
+                      icon: const Icon(Icons.login),
+                      label: const Text("Continuar con Google"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        side: const BorderSide(color: Colors.grey),
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                    ),
+
                     const SizedBox(height: 20),
 
                     Row(
@@ -178,7 +241,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // 🔴 HEADER ROJO
+  // 🔴 HEADER
   Widget _buildHeader() => Container(
     width: double.infinity,
     padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
@@ -242,7 +305,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     validator: (v) => v == null ? 'Selecciona grado' : null,
   );
 
-  // 🔴 BOTÓN ROJO
   Widget _buildButton() => SizedBox(
     width: double.infinity,
     height: 50,
@@ -250,16 +312,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ? const Center(child: CircularProgressIndicator(color: AppColors.rojo))
         : ElevatedButton(
             onPressed: _registerUser,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.rojo,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Registrarse',
-              style: TextStyle(fontSize: 16, color: Colors.white),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rojo),
+            child: const Text('Registrarse'),
           ),
   );
 }
