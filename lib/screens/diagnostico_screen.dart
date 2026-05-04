@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'welcome_screen.dart';
+import 'home_inicio.dart';
 
 class DiagnosticoScreen extends StatefulWidget {
   const DiagnosticoScreen({super.key});
@@ -14,7 +14,7 @@ class DiagnosticoScreen extends StatefulWidget {
 
 class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
   static const Color _rojo = Color(0xFFE53935);
-  static const int _totalPreguntas = 10;
+  static const int _totalPreguntas = 16;
 
   final _user = FirebaseAuth.instance.currentUser!;
   final _random = Random();
@@ -111,15 +111,22 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     };
   }
 
+  // 📊 Aciertos / intentos por tema durante el diagnóstico
+  final Map<int, int> _aciertosPorTipo = {0: 0, 1: 0, 2: 0, 3: 0};
+  final Map<int, int> _intentosPorTipo = {0: 0, 1: 0, 2: 0, 3: 0};
+
   // ── Lógica de respuesta ───────────────────────────────────────────────────
   void _responder(String opcion) {
     if (_respondido) return;
     final correcta = _preguntas[_actual]['correcta'] as String;
+    final tipo = _preguntas[_actual]['tipo'] as int;
     setState(() {
       _seleccionada = opcion;
       _respondido = true;
+      _intentosPorTipo[tipo] = (_intentosPorTipo[tipo] ?? 0) + 1;
       if (opcion == correcta) {
         _aciertos++;
+        _aciertosPorTipo[tipo] = (_aciertosPorTipo[tipo] ?? 0) + 1;
       } else {
         _errores++;
       }
@@ -166,13 +173,22 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
       'tiempo_total': total * 20.0,
       'grado': grado,
       'grado_num': gradoNum,
+      // 📚 Progreso por tema desde el diagnóstico
+      'temas.sumas.aciertos': _aciertosPorTipo[0] ?? 0,
+      'temas.sumas.intentos': _intentosPorTipo[0] ?? 0,
+      'temas.restas.aciertos': _aciertosPorTipo[1] ?? 0,
+      'temas.restas.intentos': _intentosPorTipo[1] ?? 0,
+      'temas.multiplicacion.aciertos': _aciertosPorTipo[2] ?? 0,
+      'temas.multiplicacion.intentos': _intentosPorTipo[2] ?? 0,
+      'temas.division.aciertos': _aciertosPorTipo[3] ?? 0,
+      'temas.division.intentos': _intentosPorTipo[3] ?? 0,
     });
 
     if (!mounted) return;
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
     );
   }

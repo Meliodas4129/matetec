@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/ia_service.dart';
 import 'login_screen.dart';
 import 'diagnostico_screen.dart';
+import 'practica_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,57 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final _user = FirebaseAuth.instance.currentUser!;
   static const rojo = Color(0xFFE53935);
 
-  Future<void> _actualizarNivelConIA(Map<String, dynamic> data) async {
-    final ref = FirebaseFirestore.instance.collection('users').doc(_user.uid);
-
-    int aciertos = data["aciertos"] ?? 0;
-    int errores = data["errores"] ?? 0;
-    int intentos = data["intentos"] ?? 1;
-    double tiempo = (data["tiempo_total"] ?? 0) / intentos;
-
-    final ia = await IAService.clasificar(
-      aciertos: aciertos,
-      errores: errores,
-      tiempo: tiempo,
-      intentos: intentos,
-    );
-
-    await ref.update({"grado": ia["descripcion"], "grado_num": ia["grado"]});
-  }
-
-  Future<void> registrarRespuesta(bool correcta) async {
-    final ref = FirebaseFirestore.instance.collection('users').doc(_user.uid);
-    final doc = await ref.get();
-    final data = doc.data()!;
-
-    int aciertos = data["aciertos"] ?? 0;
-    int errores = data["errores"] ?? 0;
-    int intentos = data["intentos"] ?? 0;
-    double tiempoTotal = (data["tiempo_total"] ?? 0).toDouble();
-
-    if (correcta) {
-      aciertos++;
-    } else {
-      errores++;
-    }
-    intentos++;
-    tiempoTotal += 20;
-
-    await ref.update({
-      "aciertos": aciertos,
-      "errores": errores,
-      "intentos": intentos,
-      "tiempo_total": tiempoTotal,
-    });
-
-    await _actualizarNivelConIA({
-      "aciertos": aciertos,
-      "errores": errores,
-      "intentos": intentos,
-      "tiempo_total": tiempoTotal,
-    });
-  }
-
   Future<void> _reiniciarDiagnostico() async {
     final ref = FirebaseFirestore.instance.collection('users').doc(_user.uid);
     await ref.update({
@@ -76,10 +25,17 @@ class _HomeScreenState extends State<HomeScreen> {
       "errores": 0,
       "intentos": 0,
       "tiempo_total": 0,
-      "grado": "",
-      "grado_num": 1,
+      "grado": "Pendiente",
+      "grado_num": 0,
       "racha": 0,
       "puntos": 0,
+      // 📚 Reset de progreso por tema
+      "temas": {
+        "sumas": {"aciertos": 0, "intentos": 0},
+        "restas": {"aciertos": 0, "intentos": 0},
+        "multiplicacion": {"aciertos": 0, "intentos": 0},
+        "division": {"aciertos": 0, "intentos": 0},
+      },
     });
   }
 
@@ -134,18 +90,22 @@ class _HomeScreenState extends State<HomeScreen> {
             final int puntos = data["puntos"] ?? 0;
             final double progreso = intentos > 0 ? aciertos / intentos : 0.0;
 
+            // 📚 Sub-mapa con progreso por tema (puede no existir en usuarios viejos)
+            final Map<String, dynamic> temas =
+                (data["temas"] as Map<String, dynamic>?) ?? const {};
+
             final List<Widget> screens = [
               _Inicio(
                 nombre: nombre,
                 grado: grado,
                 gradoNum: gradoNum,
                 racha: racha,
-                onRegistrar: registrarRespuesta,
               ),
               _Progreso(
                 aciertos: aciertos,
                 intentos: intentos,
                 progreso: progreso,
+                temas: temas,
               ),
               const _Retos(),
               _Perfil(
@@ -210,14 +170,12 @@ class _Inicio extends StatelessWidget {
   final String grado;
   final int gradoNum;
   final int racha;
-  final Future<void> Function(bool) onRegistrar;
 
   const _Inicio({
     required this.nombre,
     required this.grado,
     required this.gradoNum,
     required this.racha,
-    required this.onRegistrar,
   });
 
   List<_Tema> get _temas => [
@@ -226,32 +184,36 @@ class _Inicio extends StatelessWidget {
       Icons.add,
       const Color(0xFFE53935),
       const Color(0xFFFFEBEE),
-      '12 lecciones',
+      'Practica sumando',
       true,
+      TemaPractica.sumas,
     ),
     _Tema(
       'Restas',
       Icons.remove,
       const Color(0xFF1E88E5),
       const Color(0xFFE3F2FD),
-      '10 lecciones',
+      'Practica restando',
       gradoNum >= 2,
+      TemaPractica.restas,
     ),
     _Tema(
       'Multiplicación',
       Icons.close,
       const Color(0xFF43A047),
       const Color(0xFFE8F5E9),
-      '15 lecciones',
+      'Tablas de multiplicar',
       gradoNum >= 3,
+      TemaPractica.multiplicacion,
     ),
     _Tema(
       'División',
       Icons.more_horiz,
       const Color(0xFFFB8C00),
       const Color(0xFFFFF3E0),
-      '11 lecciones',
+      'Divisiones exactas',
       gradoNum >= 4,
+      TemaPractica.division,
     ),
   ];
 
@@ -368,53 +330,10 @@ class _Inicio extends StatelessWidget {
               childAspectRatio: 1.1,
             ),
             itemCount: _temas.length,
-            itemBuilder: (_, i) => _TemaCard(tema: _temas[i]),
+            itemBuilder: (_, i) =>
+                _TemaCard(tema: _temas[i], gradoNum: gradoNum),
           ),
-          const SizedBox(height: 30),
-          const Text(
-            'Simular respuesta',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => onRegistrar(true),
-                  icon: const Icon(Icons.check_circle_outline),
-                  label: const Text('Correcta'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF43A047),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => onRegistrar(false),
-                  icon: const Icon(Icons.cancel_outlined),
-                  label: const Text('Incorrecta'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFE53935),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -428,6 +347,7 @@ class _Tema {
   final Color fondo;
   final String subtitulo;
   final bool desbloqueado;
+  final TemaPractica temaPractica;
   const _Tema(
     this.nombre,
     this.icono,
@@ -435,12 +355,35 @@ class _Tema {
     this.fondo,
     this.subtitulo,
     this.desbloqueado,
+    this.temaPractica,
   );
 }
 
 class _TemaCard extends StatelessWidget {
   final _Tema tema;
-  const _TemaCard({required this.tema});
+  final int gradoNum;
+  const _TemaCard({required this.tema, required this.gradoNum});
+
+  void _abrirPractica(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PracticaScreen(
+          tema: tema.temaPractica,
+          gradoNum: gradoNum,
+        ),
+      ),
+    );
+  }
+
+  void _mostrarBloqueado(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Sigue practicando para desbloquear ${tema.nombre}'),
+        backgroundColor: Colors.grey.shade800,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -448,7 +391,9 @@ class _TemaCard extends StatelessWidget {
       opacity: tema.desbloqueado ? 1.0 : 0.45,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: tema.desbloqueado ? () {} : null,
+        onTap: tema.desbloqueado
+            ? () => _abrirPractica(context)
+            : () => _mostrarBloqueado(context),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -495,11 +440,13 @@ class _Progreso extends StatelessWidget {
   final int aciertos;
   final int intentos;
   final double progreso;
+  final Map<String, dynamic> temas;
 
   const _Progreso({
     required this.aciertos,
     required this.intentos,
     required this.progreso,
+    required this.temas,
   });
 
   static const _colores = [
@@ -509,6 +456,19 @@ class _Progreso extends StatelessWidget {
     Color(0xFFFB8C00),
   ];
   static const _nombres = ['Sumas', 'Restas', 'Multiplicación', 'División'];
+  static const _claves = ['sumas', 'restas', 'multiplicacion', 'division'];
+
+  /// Devuelve (precision 0..1, intentos) de un tema
+  ({double valor, int intentos}) _statsTema(String clave) {
+    final t = temas[clave];
+    if (t is Map) {
+      final int a = (t['aciertos'] ?? 0) as int;
+      final int i = (t['intentos'] ?? 0) as int;
+      final double v = i > 0 ? a / i : 0.0;
+      return (valor: v.clamp(0.0, 1.0), intentos: i);
+    }
+    return (valor: 0.0, intentos: 0);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -542,12 +502,13 @@ class _Progreso extends StatelessWidget {
           const SizedBox(height: 10),
           ..._nombres.asMap().entries.map((e) {
             final i = e.key;
-            final valor = i == 0 ? progreso.clamp(0.0, 1.0) : 0.0;
+            final stats = _statsTema(_claves[i]);
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _ProgresoCard(
                 nombre: e.value,
-                valor: valor,
+                valor: stats.valor,
+                intentos: stats.intentos,
                 color: _colores[i],
               ),
             );
@@ -594,10 +555,12 @@ class _MetricCard extends StatelessWidget {
 class _ProgresoCard extends StatelessWidget {
   final String nombre;
   final double valor;
+  final int intentos;
   final Color color;
   const _ProgresoCard({
     required this.nombre,
     required this.valor,
+    required this.intentos,
     required this.color,
   });
 
@@ -615,12 +578,26 @@ class _ProgresoCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                nombre,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                children: [
+                  Text(
+                    nombre,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    intentos > 0
+                        ? '($intentos ${intentos == 1 ? "ejercicio" : "ejercicios"})'
+                        : '(sin datos)',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
               ),
               Text(
                 '${(valor * 100).toInt()}%',

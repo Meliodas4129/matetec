@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 // 🔴 Colores globales
 class AppColors {
@@ -25,108 +27,166 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePass = true;
 
-  // 🔐 REGISTRO NORMAL
+  // ───────────────────────── Helpers ─────────────────────────
+  /// Documento base que guardamos en Firestore para un usuario nuevo
+  Map<String, dynamic> _datosNuevoUsuario({
+    required String nombre,
+    required String email,
+  }) {
+    return {
+      'nombre': nombre,
+      'email': email,
+      // 🔥 IA lo asignará después
+      'grado': 'Pendiente',
+      'grado_num': 0,
+      // 📊 Datos para IA
+      'aciertos': 0,
+      'errores': 0,
+      'intentos': 0,
+      'tiempo_total': 0,
+      // 📚 Progreso por tema
+      'temas': {
+        'sumas': {'aciertos': 0, 'intentos': 0},
+        'restas': {'aciertos': 0, 'intentos': 0},
+        'multiplicacion': {'aciertos': 0, 'intentos': 0},
+        'division': {'aciertos': 0, 'intentos': 0},
+      },
+      // extras
+      'racha': 0,
+      'puntos': 0,
+      'rol': 'estudiante',
+      'createdAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  String _mensajeErrorAuth(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'Ese correo ya está registrado';
+      case 'invalid-email':
+        return 'Correo inválido';
+      case 'weak-password':
+        return 'La contraseña es muy débil';
+      case 'operation-not-allowed':
+        return 'Registro con correo no habilitado';
+      case 'network-request-failed':
+        return 'Sin conexión a internet';
+      default:
+        return 'Error: ${e.code}';
+    }
+  }
+
+  // 🔐 REGISTRO CON CORREO Y CONTRASEÑA
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
+    UserCredential? credential;
     try {
-      final credential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim(),
-          );
+      // 1️⃣ Crear cuenta en Firebase Auth
+      credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
 
       final uid = credential.user!.uid;
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'nombre': _nombreController.text.trim(),
-        'email': _emailController.text.trim(),
-
-        // 🔥 IA lo asignará después
-        'grado': 'Pendiente',
-        'grado_num': 0,
-
-        // 📊 Datos para IA
-        'aciertos': 0,
-        'errores': 0,
-        'intentos': 0,
-        'tiempo_total': 0,
-
-        // extras
-        'racha': 0,
-        'puntos': 0,
-        'rol': 'estudiante',
-
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      // 2️⃣ Crear documento en Firestore
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .set(
+              _datosNuevoUsuario(
+                nombre: _nombreController.text.trim(),
+                email: _emailController.text.trim(),
+              ),
+            );
+      } catch (e) {
+        // Si Firestore falla, sí tiene sentido borrar el Auth para que pueda
+        // volver a intentar. Pero solo en este caso específico.
+        await credential.user?.delete();
+        rethrow;
+      }
 
       _showSnack('Ahora realiza el diagnóstico 🧠', isError: false);
 
       if (!mounted) return;
-
-      // 🔥 IR A DIAGNÓSTICO
       Navigator.pushReplacementNamed(context, '/diagnostico');
+    } on FirebaseAuthException catch (e) {
+      _showSnack(_mensajeErrorAuth(e));
     } catch (e) {
-      await FirebaseAuth.instance.currentUser?.delete();
-      _showSnack('Error al registrar');
+      debugPrint('Error registro: $e');
+      _showSnack('Error al registrar, intenta de nuevo');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // 🔥 GOOGLE LOGIN
+  // 🔥 GOOGLE LOGIN (funciona en Web y en Android/iOS)
   Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+
     try {
-      setState(() => _isLoading = true);
+      UserCredential userCredential;
 
-      final provider = GoogleAuthProvider();
-
-      final userCredential = await FirebaseAuth.instance.signInWithPopup(
-        provider,
-      );
+      if (kIsWeb) {
+        // 🌐 Flutter Web → popup
+        final provider = GoogleAuthProvider();
+        userCredential = await FirebaseAuth.instance.signInWithPopup(provider);
+      } else {
+        // 📱 Android / iOS → google_sign_in
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) {
+          // El usuario canceló el diálogo
+          if (mounted) setState(() => _isLoading = false);
+          return;
+        }
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        userCredential = await FirebaseAuth.instance.signInWithCredential(
+          credential,
+        );
+      }
 
       final user = userCredential.user!;
       final uid = user.uid;
 
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+      final docRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final doc = await docRef.get();
 
-      // 🔥 Si es nuevo usuario
+      // 🔥 Si es nuevo usuario, creamos el documento
+      bool esNuevo = false;
       if (!doc.exists) {
-        await FirebaseFirestore.instance.collection('users').doc(uid).set({
-          'nombre': user.displayName ?? 'Usuario',
-          'email': user.email,
-
-          // 🔥 IA lo asignará
-          'grado': 'Pendiente',
-          'grado_num': 0,
-
-          // 📊 IA
-          'aciertos': 0,
-          'errores': 0,
-          'intentos': 0,
-          'tiempo_total': 0,
-
-          'racha': 0,
-          'puntos': 0,
-          'rol': 'estudiante',
-
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        await docRef.set(
+          _datosNuevoUsuario(
+            nombre: user.displayName ?? 'Usuario',
+            email: user.email ?? '',
+          ),
+        );
+        esNuevo = true;
       }
 
       _showSnack('Bienvenido 🚀', isError: false);
 
       if (!mounted) return;
 
-      // 🔥 IR A DIAGNÓSTICO
-      Navigator.pushReplacementNamed(context, '/diagnostico');
+      // 🔥 Decidir destino: si es nuevo o no hizo diagnóstico → diagnóstico
+      final data = (await docRef.get()).data();
+      final grado = (data?['grado'] ?? 'Pendiente') as String;
+      if (esNuevo || grado == 'Pendiente' || grado.isEmpty) {
+        Navigator.pushReplacementNamed(context, '/diagnostico');
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } on FirebaseAuthException catch (e) {
+      _showSnack(_mensajeErrorAuth(e));
     } catch (e) {
-      print("ERROR GOOGLE: $e");
+      debugPrint('ERROR GOOGLE: $e');
       _showSnack('Error con Google');
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -207,7 +267,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     // 🔥 GOOGLE
                     ElevatedButton.icon(
-                      onPressed: _signInWithGoogle,
+                      onPressed: _isLoading ? null : _signInWithGoogle,
                       icon: const Icon(Icons.login),
                       label: const Text("Continuar con Google"),
                       style: ElevatedButton.styleFrom(
