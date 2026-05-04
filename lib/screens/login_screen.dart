@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'home_inicio.dart';
+import 'home_inicio.dart'; // ✅ corregido (antes era home_inicio.dart)
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -17,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePass = true;
 
-  // 🔐 LOGIN
+  // ── LOGIN ────────────────────────────────────────────────────────────────
   Future<void> loginUser() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
       _showSnack('Completa todos los campos');
@@ -32,9 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: passwordController.text.trim(),
       );
 
-      final user = credential.user;
-
-      _showSnack('Bienvenido ${user?.email}', isError: false);
+      _showSnack('Bienvenido ${credential.user?.email}', isError: false);
 
       if (!mounted) return;
 
@@ -43,11 +41,15 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } on FirebaseAuthException catch (e) {
+      // Firebase SDK nuevo usa 'invalid-credential' para usuario/contraseña incorrectos
       final errores = {
         'user-not-found': 'Usuario no encontrado',
         'wrong-password': 'Contraseña incorrecta',
+        'invalid-credential': 'Correo o contraseña incorrectos', // ✅ nuevo SDK
         'invalid-email': 'Correo inválido',
         'user-disabled': 'Usuario deshabilitado',
+        'too-many-requests': 'Demasiados intentos, espera un momento',
+        'network-request-failed': 'Sin conexión a internet',
       };
 
       _showSnack(errores[e.code] ?? 'Error: ${e.code}');
@@ -58,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // 🔥 RESET PASSWORD
+  // ── RESET PASSWORD ───────────────────────────────────────────────────────
   Future<void> resetPassword() async {
     if (emailController.text.isEmpty) {
       _showSnack('Ingresa tu correo primero');
@@ -69,7 +71,6 @@ class _LoginScreenState extends State<LoginScreen> {
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: emailController.text.trim(),
       );
-
       _showSnack(
         'Correo enviado para restablecer contraseña 📩',
         isError: false,
@@ -79,7 +80,6 @@ class _LoginScreenState extends State<LoginScreen> {
         'user-not-found': 'No existe ese correo',
         'invalid-email': 'Correo inválido',
       };
-
       _showSnack(errores[e.code] ?? 'Error: ${e.code}');
     } catch (e) {
       _showSnack('Error al enviar correo');
@@ -102,6 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // ── UI ───────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     const rojo = Color(0xFFE53935);
@@ -110,26 +111,53 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFFF4F3FF),
       body: Center(
         child: SingleChildScrollView(
-          // 🔥 evita overflow
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // ── Logo / título ──────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFEBEE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.school, color: rojo, size: 40),
+                ),
+
+                const SizedBox(height: 16),
+
+                const Text(
+                  'MateTec',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: rojo,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
                 const Text(
                   'Iniciar sesión',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
 
                 const SizedBox(height: 30),
 
-                // 📧 EMAIL
+                // ── Email ──────────────────────────────────────────────
                 TextField(
                   controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: 'Correo',
-                    prefixIcon: const Icon(Icons.email),
+                    prefixIcon: const Icon(Icons.email_outlined),
                     border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: rojo),
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
@@ -137,16 +165,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 16),
 
-                // 🔒 PASSWORD
+                // ── Password ───────────────────────────────────────────
                 TextField(
                   controller: passwordController,
                   obscureText: _obscurePass,
                   decoration: InputDecoration(
                     labelText: 'Contraseña',
-                    prefixIcon: const Icon(Icons.lock),
+                    prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePass ? Icons.visibility : Icons.visibility_off,
+                        _obscurePass
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                       ),
                       onPressed: () =>
                           setState(() => _obscurePass = !_obscurePass),
@@ -154,10 +184,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: rojo),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
 
-                // 🔥 OLVIDÉ CONTRASEÑA
+                // ── ¿Olvidaste? ────────────────────────────────────────
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
@@ -169,39 +203,46 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
-                // 🔴 BOTÓN LOGIN
-                _isLoading
-                    ? const CircularProgressIndicator()
-                    : SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
+                // ── Botón login ────────────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(color: rojo),
+                        )
+                      : ElevatedButton(
                           onPressed: loginUser,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: rojo,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                          child: const Text('Iniciar sesión'),
+                          child: const Text(
+                            'Iniciar sesión',
+                            style: TextStyle(fontSize: 15),
+                          ),
                         ),
-                      ),
+                ),
 
                 const SizedBox(height: 20),
 
-                // 🔥 IR A REGISTRO
+                // ── Ir a registro ──────────────────────────────────────
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text('¿No tienes cuenta? '),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
-                          ),
-                        );
-                      },
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RegisterScreen(),
+                        ),
+                      ),
                       child: const Text(
                         'Regístrate',
                         style: TextStyle(
