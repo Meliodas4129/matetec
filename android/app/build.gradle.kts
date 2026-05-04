@@ -16,6 +16,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Necesario para flutter_local_notifications (usa APIs Java 8+ en Android viejos)
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -23,10 +25,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // ID único de la aplicación. ⚠️ Si lo cambias, vuelve a registrarla en Firebase.
         applicationId = "com.example.matetec"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -35,11 +35,15 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // TODO: configura tu propia signing config para release.
+            // De momento usa la debug, así `flutter run --release` funciona.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

@@ -1,24 +1,26 @@
 apply plugin: 'com.android.application'
+apply plugin: 'com.google.gms.google-services'
 apply plugin: 'kotlin-android'
 apply plugin: 'dev.flutter.flutter-gradle-plugin'
 
 android {
-    namespace "matetec.app_o"
+    namespace "com.example.matetec"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
         coreLibraryDesugaringEnabled true
     }
 
     kotlinOptions {
-        jvmTarget = '11'
+        jvmTarget = '17'
     }
 
     defaultConfig {
-        applicationId "com.example.app_o"
+        // ID único de la aplicación. ⚠️ Si lo cambias, vuelve a registrarla en Firebase.
+        applicationId "com.example.matetec"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutter.versionCode
@@ -27,6 +29,7 @@ android {
 
     buildTypes {
         release {
+            // TODO: configura tu propia signing config para release.
             signingConfig signingConfigs.debug
         }
     }

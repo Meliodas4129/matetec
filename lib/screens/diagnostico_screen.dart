@@ -166,6 +166,8 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
       grado = 'Nivel Inicial';
     }
 
+    // El diagnóstico NO escribe en temas.X — eso queda solo para la práctica real,
+    // así la pantalla de Progreso refleja únicamente lo que el usuario ha practicado.
     await FirebaseFirestore.instance.collection('users').doc(_user.uid).update({
       'aciertos': _aciertos,
       'errores': _errores,
@@ -173,15 +175,13 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
       'tiempo_total': total * 20.0,
       'grado': grado,
       'grado_num': gradoNum,
-      // 📚 Progreso por tema desde el diagnóstico
-      'temas.sumas.aciertos': _aciertosPorTipo[0] ?? 0,
-      'temas.sumas.intentos': _intentosPorTipo[0] ?? 0,
-      'temas.restas.aciertos': _aciertosPorTipo[1] ?? 0,
-      'temas.restas.intentos': _intentosPorTipo[1] ?? 0,
-      'temas.multiplicacion.aciertos': _aciertosPorTipo[2] ?? 0,
-      'temas.multiplicacion.intentos': _intentosPorTipo[2] ?? 0,
-      'temas.division.aciertos': _aciertosPorTipo[3] ?? 0,
-      'temas.division.intentos': _intentosPorTipo[3] ?? 0,
+      // Reset por si reinició diagnóstico desde el perfil
+      'temas': {
+        'sumas': {'aciertos': 0, 'intentos': 0},
+        'restas': {'aciertos': 0, 'intentos': 0},
+        'multiplicacion': {'aciertos': 0, 'intentos': 0},
+        'division': {'aciertos': 0, 'intentos': 0},
+      },
     });
 
     if (!mounted) return;
