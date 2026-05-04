@@ -41,121 +41,119 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
-        appBar: AppBar(
-          backgroundColor: rojo,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          title: const Text(
-            'MateTec',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.3,
+        backgroundColor: const Color(0xFFFAFAFA),
+        body: SafeArea(
+          bottom: false,
+          child: StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(_user.uid)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final data = snapshot.data!.data() as Map<String, dynamic>;
+
+              final String nombre = data["nombre"] ?? "Usuario";
+              final String grado = data["grado"] ?? "";
+              final String email = data["email"] ?? "";
+              final int gradoNum = data["grado_num"] ?? 1;
+              final int aciertos = data["aciertos"] ?? 0;
+              final int intentos = data["intentos"] ?? 1;
+              final int racha = data["racha"] ?? 0;
+              final int puntos = data["puntos"] ?? 0;
+              final double progreso =
+                  intentos > 0 ? aciertos / intentos : 0.0;
+
+              // 📚 Sub-mapa con progreso por tema (puede no existir en usuarios viejos)
+              final Map<String, dynamic> temas =
+                  (data["temas"] as Map<String, dynamic>?) ?? const {};
+
+              final List<Widget> screens = [
+                _Inicio(
+                  nombre: nombre,
+                  grado: grado,
+                  gradoNum: gradoNum,
+                  racha: racha,
+                  puntos: puntos,
+                ),
+                _Progreso(
+                  aciertos: aciertos,
+                  intentos: intentos,
+                  progreso: progreso,
+                  temas: temas,
+                ),
+                const _Retos(),
+                _Perfil(
+                  nombre: nombre,
+                  grado: grado,
+                  email: email,
+                  aciertos: aciertos,
+                  racha: racha,
+                  puntos: puntos,
+                  onReiniciarDiagnostico: _reiniciarDiagnostico,
+                ),
+              ];
+
+              return IndexedStack(index: _currentIndex, children: screens);
+            },
+          ),
+        ),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 12,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              backgroundColor: Colors.white,
+              selectedItemColor: rojo,
+              unselectedItemColor: Colors.grey.shade400,
+              selectedLabelStyle: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              unselectedLabelStyle: const TextStyle(fontSize: 11),
+              type: BottomNavigationBarType.fixed,
+              elevation: 0,
+              onTap: (i) => setState(() => _currentIndex = i),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home),
+                  label: 'Inicio',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.bar_chart_outlined),
+                  activeIcon: Icon(Icons.bar_chart),
+                  label: 'Progreso',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.extension_outlined),
+                  activeIcon: Icon(Icons.extension),
+                  label: 'Retos',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: 'Perfil',
+                ),
+              ],
             ),
           ),
-          actions: [
-            IconButton(
-              icon: const Icon(
-                Icons.notifications_outlined,
-                color: Colors.white,
-              ),
-              onPressed: () {},
-            ),
-          ],
-        ),
-        body: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('users')
-              .doc(_user.uid)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final data = snapshot.data!.data() as Map<String, dynamic>;
-
-            final String nombre = data["nombre"] ?? "Usuario";
-            final String grado = data["grado"] ?? "";
-            final String email = data["email"] ?? "";
-            final int gradoNum = data["grado_num"] ?? 1;
-            final int aciertos = data["aciertos"] ?? 0;
-            final int intentos = data["intentos"] ?? 1;
-            final int racha = data["racha"] ?? 0;
-            final int puntos = data["puntos"] ?? 0;
-            final double progreso = intentos > 0 ? aciertos / intentos : 0.0;
-
-            // 📚 Sub-mapa con progreso por tema (puede no existir en usuarios viejos)
-            final Map<String, dynamic> temas =
-                (data["temas"] as Map<String, dynamic>?) ?? const {};
-
-            final List<Widget> screens = [
-              _Inicio(
-                nombre: nombre,
-                grado: grado,
-                gradoNum: gradoNum,
-                racha: racha,
-              ),
-              _Progreso(
-                aciertos: aciertos,
-                intentos: intentos,
-                progreso: progreso,
-                temas: temas,
-              ),
-              const _Retos(),
-              _Perfil(
-                nombre: nombre,
-                grado: grado,
-                email: email,
-                aciertos: aciertos,
-                racha: racha,
-                puntos: puntos,
-                onReiniciarDiagnostico: _reiniciarDiagnostico,
-              ),
-            ];
-
-            return IndexedStack(index: _currentIndex, children: screens);
-          },
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          selectedItemColor: rojo,
-          unselectedItemColor: Colors.grey.shade500,
-          selectedLabelStyle: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: const TextStyle(fontSize: 11),
-          type: BottomNavigationBarType.fixed,
-          elevation: 8,
-          onTap: (i) => setState(() => _currentIndex = i),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calculate_outlined),
-              activeIcon: Icon(Icons.calculate),
-              label: 'Matemáticas',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_outlined),
-              activeIcon: Icon(Icons.bar_chart),
-              label: 'Progreso',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.extension_outlined),
-              activeIcon: Icon(Icons.extension),
-              label: 'Retos',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Perfil',
-            ),
-          ],
         ),
       ),
     );
@@ -170,12 +168,14 @@ class _Inicio extends StatelessWidget {
   final String grado;
   final int gradoNum;
   final int racha;
+  final int puntos;
 
   const _Inicio({
     required this.nombre,
     required this.grado,
     required this.gradoNum,
     required this.racha,
+    required this.puntos,
   });
 
   List<_Tema> get _temas => [
@@ -217,92 +217,235 @@ class _Inicio extends StatelessWidget {
     ),
   ];
 
+  String _saludo() {
+    final hora = DateTime.now().hour;
+    if (hora < 12) return 'Buenos días';
+    if (hora < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header limpio ─────────────────────────────────────────────
           Row(
             children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _saludo(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      nombre,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                        height: 1.1,
+                      ),
+                    ),
+                    if (grado.isNotEmpty && grado != 'Pendiente') ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE53935).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          grado,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFE53935),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               CircleAvatar(
-                radius: 26,
-                backgroundColor: const Color(0xFFFFCDD2),
+                radius: 24,
+                backgroundColor: const Color(0xFFE53935),
                 child: Text(
                   nombre.isNotEmpty
                       ? nombre.substring(0, 1).toUpperCase()
                       : '?',
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFB71C1C),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Hola, $nombre',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (grado.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFCDD2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        grado,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFB71C1C),
-                        ),
-                      ),
-                    ),
-                ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.local_fire_department,
-                  color: Color(0xFFE53935),
-                  size: 28,
+
+          const SizedBox(height: 28),
+
+          // ── Stats horizontales (racha + puntos) ───────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: _StatPill(
+                  icon: Icons.local_fire_department,
+                  iconColor: const Color(0xFFFB8C00),
+                  iconBg: const Color(0xFFFFF3E0),
+                  label: 'Racha',
+                  valor: '$racha',
+                  sub: racha == 1 ? 'día' : 'días',
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatPill(
+                  icon: Icons.star_rounded,
+                  iconColor: const Color(0xFFFFA000),
+                  iconBg: const Color(0xFFFFF8E1),
+                  label: 'Puntos',
+                  valor: '$puntos',
+                  sub: 'totales',
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          // ── Sección de temas ──────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Practica un tema',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              Text(
+                '${_temas.where((t) => t.desbloqueado).length}/${_temas.length}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Sube de nivel para desbloquear más',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 16),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+              childAspectRatio: 1.05,
+            ),
+            itemCount: _temas.length,
+            itemBuilder: (_, i) =>
+                _TemaCard(tema: _temas[i], gradoNum: gradoNum),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final Color iconBg;
+  final String label;
+  final String valor;
+  final String sub;
+
+  const _StatPill({
+    required this.icon,
+    required this.iconColor,
+    required this.iconBg,
+    required this.label,
+    required this.valor,
+    required this.sub,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
-                      'Racha actual',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
                     Text(
-                      '$racha ${racha == 1 ? 'día' : 'días'} seguidos',
+                      valor,
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A),
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(
+                        sub,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade500,
+                        ),
                       ),
                     ),
                   ],
@@ -310,30 +453,6 @@ class _Inicio extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          const Text(
-            'Selecciona un tema',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.1,
-            ),
-            itemCount: _temas.length,
-            itemBuilder: (_, i) =>
-                _TemaCard(tema: _temas[i], gradoNum: gradoNum),
-          ),
-          const SizedBox(height: 20),
         ],
       ),
     );
