@@ -3,12 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
-// 🔴 Colores globales
-class AppColors {
-  static const Color rojo = Color(0xFFE53935);
-  static const Color negro = Colors.black;
-}
+import '../theme/app_theme.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -197,7 +192,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? AppColors.danger : AppColors.success,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -213,125 +209,168 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F3FF),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      ),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // ── Logo ──────────────────────────────────────────────
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(
+                    Icons.person_add_alt_1_rounded,
+                    color: AppColors.primary,
+                    size: 36,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Crear cuenta',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Empieza a aprender hoy mismo',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 32),
 
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
+                _buildInput(
+                  _nombreController,
+                  'Nombre',
+                  Icons.person_outline,
+                  (v) => v!.isEmpty ? 'Requerido' : null,
+                ),
+                const SizedBox(height: 14),
+
+                _buildInput(
+                  _emailController,
+                  'Correo',
+                  Icons.email_outlined,
+                  (v) => !v!.contains('@') ? 'Correo inválido' : null,
+                ),
+                const SizedBox(height: 14),
+
+                _buildInput(
+                  _passwordController,
+                  'Contraseña',
+                  Icons.lock_outline,
+                  (v) => v!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                  obscure: _obscurePass,
+                  suffix: IconButton(
+                    icon: Icon(
+                      _obscurePass
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePass = !_obscurePass),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                _buildButton(),
+
+                const SizedBox(height: 16),
+
+                // ── Divisor "o" ───────────────────────────────────────
+                Row(
+                  children: const [
+                    Expanded(child: Divider(color: AppColors.border)),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'o',
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: AppColors.border)),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Google ────────────────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _signInWithGoogle,
+                    icon: const Icon(
+                      Icons.g_mobiledata_rounded,
+                      size: 28,
+                    ),
+                    label: const Text(
+                      'Continuar con Google',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textPrimary,
+                      side: const BorderSide(
+                        color: AppColors.border,
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildInput(
-                      _nombreController,
-                      'NOMBRE',
-                      Icons.person,
-                      (v) => v!.isEmpty ? 'Requerido' : null,
+                    const Text(
+                      '¿Ya tienes cuenta? ',
+                      style: TextStyle(color: AppColors.textSecondary),
                     ),
-
-                    const SizedBox(height: 16),
-
-                    _buildInput(
-                      _emailController,
-                      'CORREO',
-                      Icons.email,
-                      (v) => !v!.contains('@') ? 'Correo inválido' : null,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    _buildInput(
-                      _passwordController,
-                      'CONTRASEÑA',
-                      Icons.lock,
-                      (v) => v!.length < 6 ? 'Mínimo 6 caracteres' : null,
-                      obscure: _obscurePass,
-                      suffix: IconButton(
-                        icon: Icon(
-                          _obscurePass
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Text(
+                        'Inicia sesión',
+                        style: TextStyle(
+                          color: AppColors.primaryLight,
+                          fontWeight: FontWeight.bold,
                         ),
-                        onPressed: () =>
-                            setState(() => _obscurePass = !_obscurePass),
                       ),
-                    ),
-
-                    const SizedBox(height: 25),
-
-                    _buildButton(),
-                    const SizedBox(height: 10),
-
-                    // 🔥 GOOGLE
-                    ElevatedButton.icon(
-                      onPressed: _isLoading ? null : _signInWithGoogle,
-                      icon: const Icon(Icons.login),
-                      label: const Text("Continuar con Google"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        side: const BorderSide(color: Colors.grey),
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('¿Ya tienes cuenta? '),
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: const Text(
-                            'Inicia sesión',
-                            style: TextStyle(
-                              color: AppColors.negro,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 12),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
-
-  // 🔴 HEADER
-  Widget _buildHeader() => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
-    decoration: const BoxDecoration(
-      color: AppColors.rojo,
-      borderRadius: BorderRadius.only(
-        bottomLeft: Radius.circular(30),
-        bottomRight: Radius.circular(30),
-      ),
-    ),
-    child: const Column(
-      children: [
-        Icon(Icons.school, color: Colors.white, size: 40),
-        SizedBox(height: 10),
-        Text(
-          'Crear cuenta',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    ),
-  );
 
   Widget _buildInput(
     TextEditingController controller,
@@ -345,28 +384,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
       controller: controller,
       obscureText: obscure,
       validator: validator,
+      style: const TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
         suffixIcon: suffix,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.rojo),
-          borderRadius: BorderRadius.circular(12),
-        ),
       ),
     );
   }
 
   Widget _buildButton() => SizedBox(
     width: double.infinity,
-    height: 50,
+    height: 54,
     child: _isLoading
-        ? const Center(child: CircularProgressIndicator(color: AppColors.rojo))
+        ? const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          )
         : ElevatedButton(
             onPressed: _registerUser,
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rojo),
-            child: const Text('Registrarse'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            child: const Text(
+              'Crear cuenta',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
           ),
   );
 }

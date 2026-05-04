@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/ia_service.dart';
+import '../theme/app_theme.dart';
 
 /// Tema disponible para practicar
 enum TemaPractica { sumas, restas, multiplicacion, division }
@@ -39,13 +40,13 @@ extension TemaPracticaX on TemaPractica {
   Color get color {
     switch (this) {
       case TemaPractica.sumas:
-        return const Color(0xFFE53935);
+        return AppColors.temaSumas;
       case TemaPractica.restas:
-        return const Color(0xFF1E88E5);
+        return AppColors.temaRestas;
       case TemaPractica.multiplicacion:
-        return const Color(0xFF43A047);
+        return AppColors.temaMult;
       case TemaPractica.division:
-        return const Color(0xFFFB8C00);
+        return AppColors.temaDiv;
     }
   }
 
@@ -355,7 +356,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFE53935),
+              foregroundColor: AppColors.danger,
             ),
             child: const Text(
               'Terminar',
@@ -383,7 +384,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F5F5),
+        backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: color,
           elevation: 0,
@@ -550,10 +551,10 @@ class _PracticaScreenState extends State<PracticaScreen> {
             child: LinearProgressIndicator(
               value: progresoTiempo.clamp(0.0, 1.0),
               minHeight: 8,
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: AppColors.border,
               valueColor: AlwaysStoppedAnimation<Color>(
                 _segundosRestantes <= 10
-                    ? const Color(0xFFE53935)
+                    ? AppColors.danger
                     : color,
               ),
             ),
@@ -567,21 +568,21 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 icon: Icons.local_fire_department,
                 valor: '$_rachaActual',
                 label: 'Racha',
-                color: const Color(0xFFFB8C00),
+                color: AppColors.warning,
               ),
               const SizedBox(width: 10),
               _ChipStat(
                 icon: Icons.check_circle,
                 valor: '$_aciertos',
                 label: 'Aciertos',
-                color: const Color(0xFF43A047),
+                color: AppColors.success,
               ),
               const SizedBox(width: 10),
               _ChipStat(
                 icon: Icons.star,
                 valor: '$_puntosSesion',
                 label: 'Puntos',
-                color: const Color(0xFFE53935),
+                color: AppColors.danger,
               ),
             ],
           ),
@@ -592,19 +593,12 @@ class _PracticaScreenState extends State<PracticaScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: color.withValues(alpha: 0.3),
+                color: color.withValues(alpha: 0.4),
                 width: 1.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Text(
               pregunta['pregunta'] as String,
@@ -612,7 +606,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
               style: const TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF212121),
+                color: AppColors.textPrimary,
                 letterSpacing: 1,
               ),
             ),
@@ -631,24 +625,24 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 final esCorrecta = op == correcta;
                 final esSeleccionada = op == _seleccionada;
 
-                Color borde = Colors.grey.shade200;
-                Color fondo = Colors.white;
-                Color textoColor = const Color(0xFF212121);
+                Color borde = AppColors.border;
+                Color fondo = AppColors.surface;
+                Color textoColor = AppColors.textPrimary;
 
                 if (_respondido && esSeleccionada) {
                   if (esCorrecta) {
-                    borde = Colors.green;
-                    fondo = const Color(0xFFE8F5E9);
-                    textoColor = Colors.green.shade700;
+                    borde = AppColors.success;
+                    fondo = AppColors.success.withValues(alpha: 0.18);
+                    textoColor = AppColors.success;
                   } else {
-                    borde = const Color(0xFFE53935);
-                    fondo = const Color(0xFFFFEBEE);
-                    textoColor = const Color(0xFFE53935);
+                    borde = AppColors.danger;
+                    fondo = AppColors.danger.withValues(alpha: 0.18);
+                    textoColor = AppColors.danger;
                   }
                 } else if (_respondido && esCorrecta) {
-                  borde = Colors.green;
-                  fondo = const Color(0xFFE8F5E9);
-                  textoColor = Colors.green.shade700;
+                  borde = AppColors.success;
+                  fondo = AppColors.success.withValues(alpha: 0.18);
+                  textoColor = AppColors.success;
                 }
 
                 return GestureDetector(
@@ -692,19 +686,19 @@ class _PracticaScreenState extends State<PracticaScreen> {
     if (_aciertos == 0) {
       mensaje = '¡Sigue practicando!';
       icono = Icons.fitness_center;
-      colorMensaje = Colors.grey.shade700;
+      colorMensaje = AppColors.textSecondary;
     } else if (total > 0 && _aciertos / total >= 0.8) {
       mensaje = '¡Excelente trabajo!';
       icono = Icons.emoji_events;
-      colorMensaje = const Color(0xFFFFA000);
+      colorMensaje = AppColors.warning;
     } else if (total > 0 && _aciertos / total >= 0.5) {
       mensaje = '¡Buen trabajo!';
       icono = Icons.thumb_up;
-      colorMensaje = const Color(0xFF43A047);
+      colorMensaje = AppColors.success;
     } else {
       mensaje = '¡Casi! Sigue practicando';
       icono = Icons.school;
-      colorMensaje = const Color(0xFF1E88E5);
+      colorMensaje = AppColors.primaryLight;
     }
 
     return SingleChildScrollView(
@@ -734,7 +728,10 @@ class _PracticaScreenState extends State<PracticaScreen> {
           const SizedBox(height: 6),
           Text(
             '${widget.tema.nombre} · $_duracionTotal s',
-            style: const TextStyle(fontSize: 13, color: Colors.grey),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+            ),
           ),
           const SizedBox(height: 30),
 
@@ -745,7 +742,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 child: _StatGrande(
                   valor: '$_aciertos',
                   label: 'Aciertos',
-                  color: const Color(0xFF43A047),
+                  color: AppColors.success,
                 ),
               ),
               const SizedBox(width: 12),
@@ -753,7 +750,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 child: _StatGrande(
                   valor: '$_errores',
                   label: 'Errores',
-                  color: const Color(0xFFE53935),
+                  color: AppColors.danger,
                 ),
               ),
             ],
@@ -765,7 +762,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 child: _StatGrande(
                   valor: precision,
                   label: 'Precisión',
-                  color: const Color(0xFF1E88E5),
+                  color: AppColors.temaRestas,
                 ),
               ),
               const SizedBox(width: 12),
@@ -773,7 +770,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 child: _StatGrande(
                   valor: '$_mejorRacha',
                   label: 'Mejor racha',
-                  color: const Color(0xFFFB8C00),
+                  color: AppColors.warning,
                 ),
               ),
             ],
@@ -783,13 +780,13 @@ class _PracticaScreenState extends State<PracticaScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
-                const Icon(Icons.star, color: Color(0xFFFFA000), size: 28),
+                const Icon(Icons.star, color: AppColors.warning, size: 28),
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
@@ -805,7 +802,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
                   style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFFE53935),
+                    color: AppColors.danger,
                   ),
                 ),
               ],
@@ -846,8 +843,8 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 style: TextStyle(fontSize: 15),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.grey.shade700,
-                side: BorderSide(color: Colors.grey.shade300),
+                foregroundColor: AppColors.textSecondary,
+                side: BorderSide(color: AppColors.border),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -893,7 +890,7 @@ class _BotonDuracion extends StatelessWidget {
           color: destacado ? color : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: destacado ? color : Colors.grey.shade300,
+            color: destacado ? color : AppColors.border,
             width: 1.5,
           ),
         ),
@@ -933,7 +930,7 @@ class _BotonDuracion extends StatelessWidget {
               Icons.chevron_right,
               color: destacado
                   ? Colors.white
-                  : Colors.grey.shade400,
+                  : AppColors.textMuted,
             ),
           ],
         ),
@@ -963,7 +960,7 @@ class _ChipStat extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           children: [
@@ -1012,7 +1009,7 @@ class _StatGrande extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [

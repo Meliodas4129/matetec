@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'firebase_options.dart';
+import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
@@ -25,11 +26,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MateTec',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.dark,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       routes: {
         '/welcome': (_) => const WelcomeScreen(),
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),
-        '/home': (_) => const HomeScreen(), // ✅ ahora va al Home real
+        '/home': (_) => const HomeScreen(),
         '/diagnostico': (_) => const DiagnosticoScreen(),
       },
       home: const AuthWrapper(),
@@ -112,4 +116,3 @@ class AuthWrapper extends StatelessWidget {
     );
   }
 }
- 

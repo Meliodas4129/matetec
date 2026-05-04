@@ -67,8 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
               final int intentos = data["intentos"] ?? 1;
               final int racha = data["racha"] ?? 0;
               final int puntos = data["puntos"] ?? 0;
-              final double progreso =
-                  intentos > 0 ? aciertos / intentos : 0.0;
+              final double progreso = intentos > 0 ? aciertos / intentos : 0.0;
 
               // 📚 Sub-mapa con progreso por tema (puede no existir en usuarios viejos)
               final Map<String, dynamic> temas =
@@ -487,10 +486,8 @@ class _TemaCard extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => PracticaScreen(
-          tema: tema.temaPractica,
-          gradoNum: gradoNum,
-        ),
+        builder: (_) =>
+            PracticaScreen(tema: tema.temaPractica, gradoNum: gradoNum),
       ),
     );
   }
@@ -506,43 +503,64 @@ class _TemaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: tema.desbloqueado ? 1.0 : 0.45,
+    final desbloqueado = tema.desbloqueado;
+
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: tema.desbloqueado
+        borderRadius: BorderRadius.circular(20),
+        onTap: desbloqueado
             ? () => _abrirPractica(context)
             : () => _mostrarBloqueado(context),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: tema.fondo,
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                tema.desbloqueado ? tema.icono : Icons.lock_outline,
-                color: tema.color,
-                size: 28,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: desbloqueado ? tema.fondo : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      desbloqueado ? tema.icono : Icons.lock_outline,
+                      color: desbloqueado ? tema.color : Colors.grey.shade400,
+                      size: 22,
+                    ),
+                  ),
+                  if (desbloqueado)
+                    Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.grey.shade400,
+                      size: 18,
+                    ),
+                ],
               ),
               const Spacer(),
               Text(
                 tema.nombre,
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: tema.color.withOpacity(0.85),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: desbloqueado
+                      ? const Color(0xFF1A1A1A)
+                      : Colors.grey.shade500,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
-                tema.desbloqueado ? tema.subtitulo : 'Bloqueado',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: tema.color.withOpacity(0.7),
-                ),
+                desbloqueado ? tema.subtitulo : 'Sube de nivel',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],
           ),
@@ -576,49 +594,125 @@ class _Progreso extends StatelessWidget {
   ];
   static const _nombres = ['Sumas', 'Restas', 'Multiplicación', 'División'];
   static const _claves = ['sumas', 'restas', 'multiplicacion', 'division'];
+  static const _iconos = [
+    Icons.add,
+    Icons.remove,
+    Icons.close,
+    Icons.more_horiz,
+  ];
 
-  /// Devuelve (precision 0..1, intentos) de un tema
-  ({double valor, int intentos}) _statsTema(String clave) {
+  ({double valor, int intentos, int aciertos}) _statsTema(String clave) {
     final t = temas[clave];
     if (t is Map) {
       final int a = (t['aciertos'] ?? 0) as int;
       final int i = (t['intentos'] ?? 0) as int;
       final double v = i > 0 ? a / i : 0.0;
-      return (valor: v.clamp(0.0, 1.0), intentos: i);
+      return (valor: v.clamp(0.0, 1.0), intentos: i, aciertos: a);
     }
-    return (valor: 0.0, intentos: 0);
+    return (valor: 0.0, intentos: 0, aciertos: 0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final precision = intentos > 0 ? '${(progreso * 100).toInt()}%' : '0%';
+    // Solo cuenta lo que viene de la práctica real (sumando los temas)
+    int intentosReales = 0;
+    int aciertosReales = 0;
+    for (final clave in _claves) {
+      final s = _statsTema(clave);
+      intentosReales += s.intentos;
+      aciertosReales += s.aciertos;
+    }
+    final double precisionReal = intentosReales > 0
+        ? aciertosReales / intentosReales
+        : 0.0;
+    final precisionTexto = intentosReales > 0
+        ? '${(precisionReal * 100).toInt()}%'
+        : '—';
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header ─────────────────────────────────────────────────────
           const Text(
             'Mi progreso',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A1A),
+              height: 1.1,
+            ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _MetricCard('Ejercicios', '$intentos')),
-              const SizedBox(width: 12),
-              Expanded(child: _MetricCard('Precisión', precision)),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            intentosReales > 0
+                ? 'Llevas $intentosReales ejercicios resueltos'
+                : 'Empieza a practicar para ver tu progreso',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 26),
+
+          // ── Anillo de precisión + stats laterales ──────────────────────
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                _AnilloPrecision(
+                  valor: precisionReal,
+                  texto: precisionTexto,
+                  hayDatos: intentosReales > 0,
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _MiniStat(
+                        label: 'Aciertos',
+                        valor: '$aciertosReales',
+                        color: const Color(0xFF43A047),
+                      ),
+                      const SizedBox(height: 14),
+                      _MiniStat(
+                        label: 'Errores',
+                        valor: '${intentosReales - aciertosReales}',
+                        color: const Color(0xFFE53935),
+                      ),
+                      const SizedBox(height: 14),
+                      _MiniStat(
+                        label: 'Ejercicios',
+                        valor: '$intentosReales',
+                        color: const Color(0xFF1E88E5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 28),
+
+          // ── Por tema ──────────────────────────────────────────────────
           const Text(
             'Por tema',
             style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1A1A1A),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
+          Text(
+            'Tu rendimiento en cada tipo de operación',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+          ),
+          const SizedBox(height: 14),
           ..._nombres.asMap().entries.map((e) {
             final i = e.key;
             final stats = _statsTema(_claves[i]);
@@ -629,6 +723,7 @@ class _Progreso extends StatelessWidget {
                 valor: stats.valor,
                 intentos: stats.intentos,
                 color: _colores[i],
+                icono: _iconos[i],
               ),
             );
           }),
@@ -638,35 +733,109 @@ class _Progreso extends StatelessWidget {
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  final String label;
-  final String valor;
-  const _MetricCard(this.label, this.valor);
+class _AnilloPrecision extends StatelessWidget {
+  final double valor;
+  final String texto;
+  final bool hayDatos;
+
+  const _AnilloPrecision({
+    required this.valor,
+    required this.texto,
+    required this.hayDatos,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+      width: 110,
+      height: 110,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Text(
-            valor,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFFE53935),
+          SizedBox(
+            width: 110,
+            height: 110,
+            child: CircularProgressIndicator(
+              value: hayDatos ? valor : 0,
+              strokeWidth: 10,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                _colorDePrecision(valor),
+              ),
+              strokeCap: StrokeCap.round,
             ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                texto,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: hayDatos
+                      ? const Color(0xFF1A1A1A)
+                      : Colors.grey.shade400,
+                ),
+              ),
+              Text(
+                'Precisión',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Color _colorDePrecision(double v) {
+    if (!hayDatos) return Colors.grey.shade300;
+    if (v >= 0.8) return const Color(0xFF43A047);
+    if (v >= 0.5) return const Color(0xFF1E88E5);
+    return const Color(0xFFE53935);
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final String label;
+  final String valor;
+  final Color color;
+  const _MiniStat({
+    required this.label,
+    required this.valor,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          ),
+        ),
+        Text(
+          valor,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -676,66 +845,95 @@ class _ProgresoCard extends StatelessWidget {
   final double valor;
   final int intentos;
   final Color color;
+  final IconData icono;
   const _ProgresoCard({
     required this.nombre,
     required this.valor,
     required this.intentos,
     required this.color,
+    required this.icono,
   });
 
   @override
   Widget build(BuildContext context) {
+    final hayDatos = intentos > 0;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    nombre,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    intentos > 0
-                        ? '($intentos ${intentos == 1 ? "ejercicio" : "ejercicios"})'
-                        : '(sin datos)',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                '${(valor * 100).toInt()}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-            ],
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: hayDatos
+                  ? color.withValues(alpha: 0.12)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icono,
+              color: hayDatos ? color : Colors.grey.shade400,
+              size: 22,
+            ),
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: valor,
-              minHeight: 7,
-              backgroundColor: Colors.grey.shade100,
-              valueColor: AlwaysStoppedAnimation(color),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      nombre,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
+                    ),
+                    if (hayDatos)
+                      Text(
+                        '${(valor * 100).toInt()}%',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                if (hayDatos) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: valor,
+                      minHeight: 6,
+                      backgroundColor: Colors.grey.shade100,
+                      valueColor: AlwaysStoppedAnimation(color),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$intentos ${intentos == 1 ? "ejercicio" : "ejercicios"}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
+                ] else
+                  Text(
+                    'Aún no has practicado',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade400,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

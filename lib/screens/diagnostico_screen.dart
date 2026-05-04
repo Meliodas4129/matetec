@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/app_theme.dart';
 import 'home_inicio.dart';
 
 class DiagnosticoScreen extends StatefulWidget {
@@ -13,7 +14,6 @@ class DiagnosticoScreen extends StatefulWidget {
 }
 
 class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
-  static const Color _rojo = Color(0xFFE53935);
   static const int _totalPreguntas = 16;
 
   final _user = FirebaseAuth.instance.currentUser!;
@@ -202,12 +202,12 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     final progreso = (_actual + 1) / _preguntas.length;
     final tipo = pregunta['tipo'] as int;
 
-    // Color e icono según tipo de operación
+    // Color e icono según tipo de operación (versiones para dark mode)
     final List<Color> coloresTipo = [
-      const Color(0xFFE53935), // suma - rojo
-      const Color(0xFF1E88E5), // resta - azul
-      const Color(0xFF43A047), // multiplicacion - verde
-      const Color(0xFFFB8C00), // division - naranja
+      AppColors.temaSumas,
+      AppColors.temaRestas,
+      AppColors.temaMult,
+      AppColors.temaDiv,
     ];
     final List<String> labelsTipo = [
       'Suma',
@@ -225,193 +225,195 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     final colorTipo = coloresTipo[tipo];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: _rojo,
+        backgroundColor: AppColors.background,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: const Text(
           'Diagnóstico inicial',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Progreso ────────────────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Pregunta ${_actual + 1} de ${_preguntas.length}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Progreso ────────────────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Pregunta ${_actual + 1} de ${_preguntas.length}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorTipo.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(iconosTipo[tipo], color: colorTipo, size: 13),
-                      const SizedBox(width: 4),
-                      Text(
-                        labelsTipo[tipo],
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: colorTipo,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorTipo.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(iconosTipo[tipo], color: colorTipo, size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          labelsTipo[tipo],
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: colorTipo,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progreso,
-                minHeight: 7,
-                backgroundColor: Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation<Color>(colorTipo),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── Puntaje en tiempo real ───────────────────────────────────
-            Row(
-              children: [
-                Icon(
-                  Icons.check_circle,
-                  color: Colors.green.shade400,
-                  size: 16,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '$_aciertos correctas',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.green.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.cancel, color: Colors.red.shade300, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  '$_errores incorrectas',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.red.shade400,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-
-            // ── Tarjeta de pregunta ──────────────────────────────────────
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: colorTipo.withOpacity(0.3),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorTipo.withOpacity(0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                      ],
+                    ),
                   ),
                 ],
               ),
-              child: Text(
-                pregunta['pregunta'] as String,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF212121),
-                  letterSpacing: 1,
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progreso,
+                  minHeight: 7,
+                  backgroundColor: AppColors.surface,
+                  valueColor: AlwaysStoppedAnimation<Color>(colorTipo),
                 ),
               ),
-            ),
-            const SizedBox(height: 28),
+              const SizedBox(height: 14),
 
-            // ── Opciones ────────────────────────────────────────────────
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 2.2,
-                physics: const NeverScrollableScrollPhysics(),
-                children: opciones.map((op) {
-                  final esCorrecta = op == correcta;
-                  final esSeleccionada = op == _seleccionada;
+              // ── Puntaje en tiempo real ───────────────────────────────
+              Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle,
+                    color: AppColors.success,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$_aciertos correctas',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Icon(
+                    Icons.cancel,
+                    color: AppColors.danger,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$_errores incorrectas',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.danger,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
 
-                  Color borde = Colors.grey.shade200;
-                  Color fondo = Colors.white;
-                  Color textoColor = const Color(0xFF212121);
+              // ── Tarjeta de pregunta ──────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: colorTipo.withValues(alpha: 0.4),
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  pregunta['pregunta'] as String,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
 
-                  if (_respondido && esSeleccionada) {
-                    if (esCorrecta) {
-                      borde = Colors.green;
-                      fondo = const Color(0xFFE8F5E9);
-                      textoColor = Colors.green.shade700;
-                    } else {
-                      borde = _rojo;
-                      fondo = const Color(0xFFFFEBEE);
-                      textoColor = _rojo;
+              // ── Opciones ────────────────────────────────────────────
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 2.2,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: opciones.map((op) {
+                    final esCorrecta = op == correcta;
+                    final esSeleccionada = op == _seleccionada;
+
+                    Color borde = AppColors.border;
+                    Color fondo = AppColors.surface;
+                    Color textoColor = AppColors.textPrimary;
+
+                    if (_respondido && esSeleccionada) {
+                      if (esCorrecta) {
+                        borde = AppColors.success;
+                        fondo = AppColors.success.withValues(alpha: 0.18);
+                        textoColor = AppColors.success;
+                      } else {
+                        borde = AppColors.danger;
+                        fondo = AppColors.danger.withValues(alpha: 0.18);
+                        textoColor = AppColors.danger;
+                      }
+                    } else if (_respondido && esCorrecta) {
+                      borde = AppColors.success;
+                      fondo = AppColors.success.withValues(alpha: 0.18);
+                      textoColor = AppColors.success;
                     }
-                  } else if (_respondido && esCorrecta) {
-                    // Resalta la correcta aunque no la hayan elegido
-                    borde = Colors.green;
-                    fondo = const Color(0xFFE8F5E9);
-                    textoColor = Colors.green.shade700;
-                  }
 
-                  return GestureDetector(
-                    onTap: () => _responder(op),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        color: fondo,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: borde, width: 1.5),
-                      ),
-                      child: Center(
-                        child: Text(
-                          op,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: textoColor,
+                    return GestureDetector(
+                      onTap: () => _responder(op),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          color: fondo,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: borde, width: 1.5),
+                        ),
+                        child: Center(
+                          child: Text(
+                            op,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: textoColor,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

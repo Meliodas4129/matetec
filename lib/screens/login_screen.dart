@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'home_inicio.dart'; // ✅ corregido (antes era home_inicio.dart)
+import '../theme/app_theme.dart';
+import 'home_inicio.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -41,11 +42,10 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } on FirebaseAuthException catch (e) {
-      // Firebase SDK nuevo usa 'invalid-credential' para usuario/contraseña incorrectos
       final errores = {
         'user-not-found': 'Usuario no encontrado',
         'wrong-password': 'Contraseña incorrecta',
-        'invalid-credential': 'Correo o contraseña incorrectos', // ✅ nuevo SDK
+        'invalid-credential': 'Correo o contraseña incorrectos',
         'invalid-email': 'Correo inválido',
         'user-disabled': 'Usuario deshabilitado',
         'too-many-requests': 'Demasiados intentos, espera un momento',
@@ -90,7 +90,8 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: isError ? Colors.red.shade700 : Colors.green.shade700,
+        backgroundColor: isError ? AppColors.danger : AppColors.success,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -105,70 +106,76 @@ class _LoginScreenState extends State<LoginScreen> {
   // ── UI ───────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    const rojo = Color(0xFFE53935);
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F3FF),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      ),
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // ── Logo / título ──────────────────────────────────────
+                // ── Logo ──────────────────────────────────────────────
                 Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFEBEE),
-                    shape: BoxShape.circle,
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Icon(Icons.school, color: rojo, size: 40),
+                  child: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: AppColors.primary,
+                    size: 36,
+                  ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
                 const Text(
-                  'MateTec',
+                  'Bienvenido de vuelta',
                   style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: rojo,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
                 ),
 
                 const SizedBox(height: 6),
 
                 const Text(
-                  'Iniciar sesión',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  'Ingresa a tu cuenta para continuar',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
 
-                const SizedBox(height: 30),
+                const SizedBox(height: 32),
 
-                // ── Email ──────────────────────────────────────────────
+                // ── Email ─────────────────────────────────────────────
                 TextField(
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: const InputDecoration(
                     labelText: 'Correo',
-                    prefixIcon: const Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: rojo),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    prefixIcon: Icon(Icons.email_outlined),
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
-                // ── Password ───────────────────────────────────────────
+                // ── Password ──────────────────────────────────────────
                 TextField(
                   controller: passwordController,
                   obscureText: _obscurePass,
+                  style: const TextStyle(color: AppColors.textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Contraseña',
                     prefixIcon: const Icon(Icons.lock_outline),
@@ -181,61 +188,62 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () =>
                           setState(() => _obscurePass = !_obscurePass),
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderSide: const BorderSide(color: rojo),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
                   ),
                 ),
 
-                // ── ¿Olvidaste? ────────────────────────────────────────
+                // ── ¿Olvidaste? ───────────────────────────────────────
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: resetPassword,
                     child: const Text(
                       '¿Olvidaste tu contraseña?',
-                      style: TextStyle(color: rojo),
+                      style: TextStyle(color: AppColors.primaryLight),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
 
-                // ── Botón login ────────────────────────────────────────
+                // ── Botón login ───────────────────────────────────────
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 54,
                   child: _isLoading
                       ? const Center(
-                          child: CircularProgressIndicator(color: rojo),
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ),
                         )
                       : ElevatedButton(
                           onPressed: loginUser,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: rojo,
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
                           child: const Text(
                             'Iniciar sesión',
-                            style: TextStyle(fontSize: 15),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
 
-                // ── Ir a registro ──────────────────────────────────────
+                // ── Ir a registro ─────────────────────────────────────
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('¿No tienes cuenta? '),
+                    const Text(
+                      '¿No tienes cuenta? ',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
                     GestureDetector(
                       onTap: () => Navigator.push(
                         context,
@@ -246,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text(
                         'Regístrate',
                         style: TextStyle(
-                          color: rojo,
+                          color: AppColors.primaryLight,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
