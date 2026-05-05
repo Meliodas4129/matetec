@@ -26,9 +26,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MateTec',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
+      theme: AppTheme.light,
+      themeMode: ThemeMode.light,
       routes: {
         '/welcome': (_) => const WelcomeScreen(),
         '/login': (_) => const LoginScreen(),
