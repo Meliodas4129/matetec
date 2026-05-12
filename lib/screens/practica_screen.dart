@@ -104,6 +104,26 @@ class _PracticaScreenState extends State<PracticaScreen> {
   int _mejorRacha = 0;
   int _puntosSesion = 0;
 
+  // 🤖 Grado actual (se actualiza con la IA en tiempo real)
+  late int _gradoActual;
+
+  // 📅 Racha diaria: solo actualizamos Firestore una vez por sesión
+  bool _rachaActualizadaHoy = false;
+
+  static const List<String> _nombresGrado = [
+    '',
+    'Nivel Inicial',
+    'Nivel Básico',
+    'Nivel Intermedio',
+    'Nivel Avanzado',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _gradoActual = widget.gradoNum;
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -146,9 +166,61 @@ class _PracticaScreenState extends State<PracticaScreen> {
     setState(() => _fase = _Fase.resultados);
   }
 
+  // ─── Racha de días consecutivos ───────────────────────────────────────────
+  /// Actualiza el campo [racha] y [ultimaPractica] en Firestore.
+  /// Solo se ejecuta una vez por sesión (cuando es la primera respuesta del día).
+  Future<void> _actualizarRachaDias(DocumentReference ref) async {
+    if (_rachaActualizadaHoy) return; // Ya lo hicimos hoy en esta sesión
+
+    try {
+      final doc = await ref.get();
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data == null) return;
+
+      final ahora = DateTime.now();
+      final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+
+      final ultimaRaw = data['ultimaPractica'];
+      final DateTime? ultimaDt =
+          ultimaRaw is Timestamp ? ultimaRaw.toDate() : null;
+
+      // Si ya practicó hoy, no tocar la racha
+      if (ultimaDt != null) {
+        final ultimoDia =
+            DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+        if (hoy.difference(ultimoDia).inDays == 0) {
+          _rachaActualizadaHoy = true;
+          return;
+        }
+      }
+
+      // Calcular nueva racha
+      int nuevaRacha;
+      if (ultimaDt == null) {
+        nuevaRacha = 1; // Primera vez que practica
+      } else {
+        final ultimoDia =
+            DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+        final diasDesde = hoy.difference(ultimoDia).inDays;
+        nuevaRacha = diasDesde == 1
+            ? ((data['racha'] ?? 0) as int) + 1 // Practicó ayer → continúa
+            : 1; // Saltó un día o más → reinicia
+      }
+
+      await ref.update({
+        'racha': nuevaRacha,
+        'ultimaPractica': Timestamp.fromDate(hoy),
+      });
+
+      _rachaActualizadaHoy = true;
+    } catch (e) {
+      debugPrint('Error actualizando racha de días: $e');
+    }
+  }
+
   // ─── Dificultad según grado ───────────────────────────────────────────────
   ({int max, int base}) get _rangos {
-    switch (widget.gradoNum) {
+    switch (_gradoActual) {
       case 4:
         return (max: 50, base: 1);
       case 3:
@@ -161,7 +233,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
   }
 
   ({int maxA, int maxB}) get _rangosMult {
-    switch (widget.gradoNum) {
+    switch (_gradoActual) {
       case 4:
         return (maxA: 12, maxB: 12);
       case 3:
@@ -308,6 +380,9 @@ class _PracticaScreenState extends State<PracticaScreen> {
       debugPrint('Error guardando respuesta: $e');
     }
 
+    // 📅 Actualizar racha de días (máximo una vez por sesión)
+    await _actualizarRachaDias(ref);
+
     try {
       final docActual = await ref.get();
       final data = docActual.data();
@@ -320,10 +395,48 @@ class _PracticaScreenState extends State<PracticaScreen> {
             ((data['intentos'] ?? 1) as int).clamp(1, 1 << 31),
         intentos: (data['intentos'] ?? 0) as int,
       );
+
+      final nuevoGrado = (ia['grado'] as num).toInt();
       await ref.update({
         'grado': ia['descripcion'],
-        'grado_num': ia['grado'],
+        'grado_num': nuevoGrado,
       });
+
+      // 🎯 Adaptar dificultad y avisar si el nivel cambió
+      if (nuevoGrado != _gradoActual && mounted) {
+        final subio = nuevoGrado > _gradoActual;
+        setState(() => _gradoActual = nuevoGrado);
+        final nombre = _nombresGrado.elementAtOrNull(nuevoGrado) ??
+            'Nivel $nuevoGrado';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Text(subio ? '🔥' : '💡', style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    subio
+                        ? '¡Subiste a $nombre!'
+                        : 'Ajustando dificultad a $nombre',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: subio ? Colors.green[700] : Colors.orange[700],
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(12),
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('IA no disponible: $e');
     }
@@ -462,7 +575,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
 
   // ─── Fase 1: Selección de duración ───────────────────────────────────────
   Widget _buildSeleccion(Color color) {
-    return Padding(
+    return SingleChildScrollView(
       key: const ValueKey('seleccion'),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -565,9 +678,9 @@ class _PracticaScreenState extends State<PracticaScreen> {
           Row(
             children: [
               _ChipStat(
-                icon: Icons.local_fire_department,
-                valor: '$_rachaActual',
-                label: 'Racha',
+                icon: Icons.format_list_numbered,
+                valor: '${_aciertos + _errores}',
+                label: 'Intentos',
                 color: AppColors.warning,
               ),
               const SizedBox(width: 10),

@@ -52,6 +52,10 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  # Dependencias para pruebas unitarias
+  mockito: ^5.4.4          # Mocks para clases externas (ej. http.Client)
+  build_runner: ^2.4.13    # Generador de código para mockito
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

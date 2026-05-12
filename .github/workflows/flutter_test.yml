@@ -1,0 +1,59 @@
+# .github/workflows/flutter_test.yml
+#
+# CI para Matetec — corre en cada push y pull request a main/master.
+# Pasos: instalar Flutter → obtener paquetes → analizar → ejecutar tests.
+
+name: Flutter CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ── Job principal: análisis y pruebas ──────────────────────────────────────
+  test:
+    name: Analizar y probar
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descarga el código del repositorio
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      # 2. Instala Flutter (versión estable, con caché para acelerar builds futuros)
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
+
+      # 3. Descarga todas las dependencias del pubspec.yaml
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      # 4. Análisis estático — detecta errores y malas prácticas sin ejecutar nada
+      - name: Analizar código (flutter analyze)
+        run: flutter analyze --no-fatal-infos
+
+      # 5. Ejecuta TODOS los tests unitarios y de widget
+      - name: Ejecutar pruebas (flutter test)
+        run: flutter test --reporter=expanded
+
+      # 6. (Opcional) Genera reporte de cobertura y lo sube a GitHub Summary
+      - name: Generar cobertura de código
+        run: flutter test --coverage
+
+      - name: Mostrar resumen de cobertura
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            echo "### Cobertura de código 📊" >> $GITHUB_STEP_SUMMARY
+            # Muestra líneas cubiertas vs totales
+            grep -E "^(SF|DA)" coverage/lcov.info | awk '
+              /^SF/ { file=$0 }
+              /^DA/ { split($0,a,","); total++; if(a[2]>0) covered++ }
+              END { printf "Líneas cubiertas: %d / %d (%.1f%%)\n", covered, total, (covered/total)*100 }
+            ' >> $GITHUB_STEP_SUMMARY
+          fi

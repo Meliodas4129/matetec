@@ -13,13 +13,18 @@ class IAService {
   // 📱 Celular físico (misma red WiFi que tu PC)
   // static const String baseUrl = "http://192.168.X.X:5000";
 
+  /// [client] es opcional; si no se pasa se usa el cliente HTTP real.
+  /// Inyectar el cliente permite sustituirlo por un mock en los tests.
   static Future<Map<String, dynamic>> clasificar({
     required int aciertos,
     required int errores,
     required double tiempo,
     required int intentos,
+    http.Client? client,
   }) async {
-    final response = await http.post(
+    final httpClient = client ?? http.Client();
+
+    final response = await httpClient.post(
       Uri.parse("$baseUrl/clasificar"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({

@@ -60,7 +60,7 @@ class _TestIAScreenState extends State<TestIAScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Probar IA - MateTec")),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
