@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../services/local_storage_service.dart';
 import '../theme/app_theme.dart';
+import 'verify_email_screen.dart';
 import 'diagnostico_screen.dart';
 import 'home_inicio.dart';
 
@@ -24,14 +26,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loading = false;
   bool _obscurePass = true;
 
+  // ── Grado escolar ─────────────────────────────────────────────────────────
+  static const List<String> _gradosEscolares = [
+    'Preescolar',
+    '1° Primaria',
+    '2° Primaria',
+    '3° Primaria',
+    '4° Primaria',
+    '5° Primaria',
+    '6° Primaria',
+  ];
+  String? _gradoEscolar;
+
+  // ── Migrar datos del invitado a Firestore ────────────────────────────────
+  Future<void> _migrarDatosInvitado(String uid) async {
+    if (!LocalStorageService.hasGuestData) return;
+    try {
+      final guestData = LocalStorageService.getDataForMigration();
+      // Solo migramos si el invitado ya completó el diagnóstico
+      if ((guestData['grado_num'] ?? 0) > 0) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .update(guestData);
+      }
+      await LocalStorageService.clearGuestData();
+    } catch (e) {
+      debugPrint('Error migrando datos del invitado: $e');
+    }
+  }
+
   // ── Datos base nuevo usuario ──────────────────────────────────────────────
   Map<String, dynamic> _datosNuevo({
     required String nombre,
     required String email,
+    String? gradoEscolar,
   }) =>
       {
         'nombre': nombre,
         'email': email,
+        'grado_escolar': gradoEscolar ?? '',
         'grado': 'Pendiente',
         'grado_num': 0,
         'aciertos': 0,
@@ -67,15 +101,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
             .set(_datosNuevo(
               nombre: _nombreCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
+              gradoEscolar: _gradoEscolar,
             ));
+        // Fusionar progreso previo del invitado, si existía
+        await _migrarDatosInvitado(cred.user!.uid);
       } catch (e) {
         await cred.user?.delete();
         rethrow;
       }
+
+      // ── Enviar verificación de correo ─────────────────────────────────
+      // Mantenemos la sesión activa para que VerifyEmailScreen pueda
+      // hacer user.reload() y detectar la verificación automáticamente.
+      final email = cred.user!.email ?? _emailCtrl.text.trim();
+      await cred.user!.sendEmailVerification();
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const DiagnosticoScreen()),
+        MaterialPageRoute(
+          builder: (_) => VerifyEmailScreen(email: email),
+        ),
       );
     } on FirebaseAuthException catch (e) {
       final msgs = {
@@ -99,9 +145,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       UserCredential userCredential;
 
       if (kIsWeb) {
-        final provider = GoogleAuthProvider();
-        userCredential =
-            await FirebaseAuth.instance.signInWithPopup(provider);
+        final provider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile')
+          ..setCustomParameters({'prompt': 'select_account'});
+        try {
+          userCredential =
+              await FirebaseAuth.instance.signInWithPopup(provider);
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'popup-blocked') {
+            await FirebaseAuth.instance.signInWithRedirect(provider);
+            return;
+          }
+          rethrow;
+        }
       } else {
         // Limpiar credenciales en caché para evitar tokens obsoletos
         final googleSignIn =
@@ -135,6 +192,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           nombre: user.displayName ?? 'Usuario',
           email: user.email ?? '',
         ));
+        await _migrarDatosInvitado(user.uid);
         esNuevo = true;
       }
 
@@ -154,27 +212,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } on FirebaseAuthException catch (e) {
       final msgs = {
+        'popup-closed-by-user':     'Cerraste la ventana de Google',
+        'cancelled-popup-request':  'Solicitud cancelada, intenta de nuevo',
+        'popup-blocked':            'Popup bloqueado — permite popups para localhost',
+        'unauthorized-domain':      'Dominio no autorizado en Firebase Console',
+        'operation-not-allowed':    'Google Sign-In no está habilitado en Firebase',
         'account-exists-with-different-credential':
             'Ya existe una cuenta con ese correo',
-        'network-request-failed': 'Sin conexión a internet',
+        'network-request-failed':   'Sin conexión a internet',
       };
-      _showSnack(msgs[e.code] ?? 'Error: ${e.code}');
-      debugPrint('GOOGLE REGISTER ERROR: ${e.code} - ${e.message}');
+      final msg = msgs[e.code] ?? '[${e.code}] ${e.message ?? "sin detalle"}';
+      _showSnack(msg, duration: const Duration(seconds: 6));
+      debugPrint('GOOGLE REGISTER ERROR code=${e.code}  msg=${e.message}');
     } catch (e) {
       debugPrint('GOOGLE REGISTER ERROR: $e');
-      _showSnack('Error con Google');
+      final txt = e.toString();
+      _showSnack(
+        txt.length > 120 ? txt.substring(0, 120) : txt,
+        duration: const Duration(seconds: 6),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _showSnack(String msg, {bool isError = true}) {
+  void _showSnack(String msg, {bool isError = true, Duration duration = const Duration(seconds: 3)}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: isError ? AppColors.danger : AppColors.success,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.all(12),
+      duration: duration,
     ));
   }
 
@@ -321,6 +390,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 onPressed: () => setState(
                                     () => _obscurePass = !_obscurePass),
                               ),
+                            ),
+
+                            const SizedBox(height: 18),
+
+                            // ── Grado escolar ────────────────────────
+                            _buildLabel('Grado escolar'),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              value: _gradoEscolar,
+                              decoration: InputDecoration(
+                                hintText: 'Selecciona tu grado',
+                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                                prefixIcon: Icon(Icons.school_outlined, size: 20, color: Colors.grey.shade500),
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                                ),
+                              ),
+                              items: _gradosEscolares.map((g) => DropdownMenuItem(
+                                value: g,
+                                child: Text(g, style: const TextStyle(fontSize: 15)),
+                              )).toList(),
+                              onChanged: _loading ? null : (v) => setState(() => _gradoEscolar = v),
+                              // No obligatorio: el alumno puede omitirlo
                             ),
 
                             const SizedBox(height: 24),

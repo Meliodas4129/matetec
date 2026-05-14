@@ -5,16 +5,66 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'firebase_options.dart';
+import 'services/local_storage_service.dart';
+import 'services/sync_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/diagnostico_screen.dart';
+import 'screens/verify_email_screen.dart';
 import 'screens/home_inicio.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // ── Persistencia offline para usuarios con cuenta ─────────────────────────
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,   // caché local cuando no hay internet
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+
+  // ── Inicializar almacenamiento local (modo invitado) ──────────────────────
+  await LocalStorageService.init();
+
+  // ── Inicializar servicio de sincronización / conectividad ─────────────────
+  await SyncService.init();
+
+  // Manejar resultado de signInWithRedirect (fallback web cuando popup es bloqueado)
+  try {
+    final result = await FirebaseAuth.instance.getRedirectResult();
+    if (result.user != null) {
+      final user = result.user!;
+      final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final doc = await docRef.get();
+      if (!doc.exists) {
+        await docRef.set({
+          'nombre': user.displayName ?? 'Usuario',
+          'email': user.email ?? '',
+          'grado': 'Pendiente',
+          'grado_num': 0,
+          'aciertos': 0,
+          'errores': 0,
+          'intentos': 0,
+          'tiempo_total': 0,
+          'temas': {
+            'sumas':          {'aciertos': 0, 'intentos': 0},
+            'restas':         {'aciertos': 0, 'intentos': 0},
+            'multiplicacion': {'aciertos': 0, 'intentos': 0},
+            'division':       {'aciertos': 0, 'intentos': 0},
+          },
+          'racha': 0,
+          'puntos': 0,
+          'rol': 'estudiante',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+  } catch (_) {
+    // getRedirectResult solo aplica en web; en móvil/desktop se ignora
+  }
+
   runApp(const MyApp());
 }
 
@@ -78,9 +128,19 @@ class AuthWrapper extends StatelessWidget {
 
         final user = snapshot.data;
 
+        // ✅ Sin sesión pero con sesión de invitado activa → HomeScreen con datos locales
+        if (user == null && LocalStorageService.isGuest) {
+          return const HomeScreen();
+        }
+
         // ✅ Sin sesión → bienvenida con Registrarse / Iniciar Sesión
         if (user == null) {
           return const WelcomeScreen();
+        }
+
+        // ✅ Correo no verificado → pedir verificación (sesión activa para polling)
+        if (!user.emailVerified) {
+          return VerifyEmailScreen(email: user.email ?? '');
         }
 
         // ✅ Con sesión → revisar si ya hizo el diagnóstico inicial

@@ -85,5 +85,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'matetec-92c63.firebasestorage.app',
     measurementId: 'G-BH8GTWPF2T',
   );
-
 }

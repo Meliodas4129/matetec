@@ -8,6 +8,8 @@ import '../theme/app_theme.dart';
 import 'home_inicio.dart';
 import 'register_screen.dart';
 import 'diagnostico_screen.dart';
+import 'verify_email_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -31,10 +33,25 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _loading = true);
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
       );
+
+      // ── Verificar que el correo esté confirmado ───────────────────────
+      if (cred.user != null && !cred.user!.emailVerified) {
+        final email = cred.user!.email ?? _emailCtrl.text.trim();
+        if (!mounted) return;
+        // Mantenemos sesión activa para que VerifyEmailScreen haga polling
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerifyEmailScreen(email: email),
+          ),
+        );
+        return;
+      }
+
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -56,26 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ── Recuperar contraseña ──────────────────────────────────────────────────
-  Future<void> _resetPassword() async {
-    if (_emailCtrl.text.isEmpty) {
-      _showSnack('Ingresa tu correo primero');
-      return;
-    }
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: _emailCtrl.text.trim(),
-      );
-      _showSnack('Correo enviado 📩', isError: false);
-    } on FirebaseAuthException catch (e) {
-      final msgs = {
-        'user-not-found': 'No existe ese correo',
-        'invalid-email': 'Correo inválido',
-      };
-      _showSnack(msgs[e.code] ?? 'Error: ${e.code}');
-    }
-  }
-
   // ── Google Sign-In ────────────────────────────────────────────────────────
   Future<void> _signInWithGoogle() async {
     setState(() => _loading = true);
@@ -83,9 +80,21 @@ class _LoginScreenState extends State<LoginScreen> {
       UserCredential userCredential;
 
       if (kIsWeb) {
-        final provider = GoogleAuthProvider();
-        userCredential =
-            await FirebaseAuth.instance.signInWithPopup(provider);
+        final provider = GoogleAuthProvider()
+          ..addScope('email')
+          ..addScope('profile')
+          ..setCustomParameters({'prompt': 'select_account'});
+        try {
+          userCredential =
+              await FirebaseAuth.instance.signInWithPopup(provider);
+        } on FirebaseAuthException catch (e) {
+          if (e.code == 'popup-blocked') {
+            // Fallback: redirect si el popup fue bloqueado
+            await FirebaseAuth.instance.signInWithRedirect(provider);
+            return;
+          }
+          rethrow;
+        }
       } else {
         // Limpiar credenciales en caché para evitar tokens obsoletos
         final googleSignIn =
@@ -152,27 +161,38 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on FirebaseAuthException catch (e) {
       final msgs = {
+        'popup-closed-by-user':     'Cerraste la ventana de Google',
+        'cancelled-popup-request':  'Solicitud cancelada, intenta de nuevo',
+        'popup-blocked':            'Popup bloqueado — permite popups para localhost',
+        'unauthorized-domain':      'Dominio no autorizado en Firebase Console',
+        'operation-not-allowed':    'Google Sign-In no está habilitado en Firebase',
         'account-exists-with-different-credential':
             'Ya existe una cuenta con ese correo',
-        'network-request-failed': 'Sin conexión a internet',
+        'network-request-failed':   'Sin conexión a internet',
       };
-      _showSnack(msgs[e.code] ?? 'Error: ${e.code}');
-      debugPrint('GOOGLE LOGIN ERROR: ${e.code} - ${e.message}');
+      final msg = msgs[e.code] ?? '[${e.code}] ${e.message ?? "sin detalle"}';
+      _showSnack(msg, duration: const Duration(seconds: 6));
+      debugPrint('GOOGLE LOGIN ERROR code=${e.code}  msg=${e.message}');
     } catch (e) {
       debugPrint('GOOGLE LOGIN ERROR: $e');
-      _showSnack('Error al iniciar con Google');
+      final txt = e.toString();
+      _showSnack(
+        txt.length > 120 ? txt.substring(0, 120) : txt,
+        duration: const Duration(seconds: 6),
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _showSnack(String msg, {bool isError = true}) {
+  void _showSnack(String msg, {bool isError = true, Duration duration = const Duration(seconds: 3)}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
       backgroundColor: isError ? AppColors.danger : AppColors.success,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.all(12),
+      duration: duration,
     ));
   }
 
@@ -304,7 +324,17 @@ class _LoginScreenState extends State<LoginScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: _loading ? null : _resetPassword,
+                              onPressed: _loading
+                                  ? null
+                                  : () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ForgotPasswordScreen(
+                                            initialEmail:
+                                                _emailCtrl.text.trim(),
+                                          ),
+                                        ),
+                                      ),
                               style: TextButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,

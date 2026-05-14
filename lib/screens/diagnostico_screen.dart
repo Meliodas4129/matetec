@@ -4,10 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
+import '../services/local_storage_service.dart';
 import 'home_inicio.dart';
 
 class DiagnosticoScreen extends StatefulWidget {
-  const DiagnosticoScreen({super.key});
+  /// Cuando [isPractice] es true, el resultado NO se guarda en Firestore/local
+  /// y se muestra un diálogo de resumen en lugar de navegar al Home.
+  final bool isPractice;
+
+  const DiagnosticoScreen({super.key, this.isPractice = false});
 
   @override
   State<DiagnosticoScreen> createState() => _DiagnosticoScreenState();
@@ -16,16 +21,18 @@ class DiagnosticoScreen extends StatefulWidget {
 class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
   static const int _totalPreguntas = 16;
 
-  final _user = FirebaseAuth.instance.currentUser!;
   final _random = Random();
 
   late final List<Map<String, Object>> _preguntas;
 
-  int _actual = 0;
+  int _actual   = 0;
   int _aciertos = 0;
-  int _errores = 0;
+  int _errores  = 0;
   String? _seleccionada;
   bool _respondido = false;
+
+  final Map<int, int> _aciertosPorTipo = {0: 0, 1: 0, 2: 0, 3: 0};
+  final Map<int, int> _intentosPorTipo = {0: 0, 1: 0, 2: 0, 3: 0};
 
   @override
   void initState() {
@@ -33,18 +40,13 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     _preguntas = _generarPreguntas();
   }
 
-  // ── Generador de preguntas aleatorias ────────────────────────────────────
+  // ── Generador de preguntas ────────────────────────────────────────────────
   List<Map<String, Object>> _generarPreguntas() {
-    final List<Map<String, Object>> lista = [];
-    // Tipos: 0=suma, 1=resta, 2=multiplicacion, 3=division
-    final tipos = [0, 1, 2, 3];
-
+    final lista = <Map<String, Object>>[];
     for (int i = 0; i < _totalPreguntas; i++) {
-      final tipo = tipos[i % tipos.length]; // distribuye los 4 tipos
-      lista.add(_generarPregunta(tipo));
+      lista.add(_generarPregunta(i % 4));
     }
-
-    lista.shuffle(_random); // mezcla el orden
+    lista.shuffle(_random);
     return lista;
   }
 
@@ -53,54 +55,46 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     String simbolo, preguntaStr;
 
     switch (tipo) {
-      case 0: // Suma
+      case 0:
         a = _random.nextInt(20) + 1;
         b = _random.nextInt(20) + 1;
         respuesta = a + b;
         simbolo = '+';
         preguntaStr = '$a $simbolo $b = ?';
         break;
-      case 1: // Resta (resultado siempre positivo)
+      case 1:
         b = _random.nextInt(15) + 1;
         a = b + _random.nextInt(15) + 1;
         respuesta = a - b;
         simbolo = '-';
         preguntaStr = '$a $simbolo $b = ?';
         break;
-      case 2: // Multiplicacion
+      case 2:
         a = _random.nextInt(10) + 1;
         b = _random.nextInt(10) + 1;
         respuesta = a * b;
         simbolo = 'x';
         preguntaStr = '$a $simbolo $b = ?';
         break;
-      case 3: // Division exacta
-        b = _random.nextInt(9) + 2; // divisor entre 2 y 10
-        respuesta = _random.nextInt(10) + 1; // cociente entre 1 y 10
+      case 3:
+        b = _random.nextInt(9) + 2;
+        respuesta = _random.nextInt(10) + 1;
         a = b * respuesta;
         simbolo = '/';
         preguntaStr = '$a $simbolo $b = ?';
         break;
       default:
-        a = 1;
-        b = 1;
-        respuesta = 2;
+        a = 1; b = 1; respuesta = 2;
         preguntaStr = '1 + 1 = ?';
     }
 
-    // Genera 3 opciones incorrectas únicas
-    final Set<int> incorrectas = {};
+    final incorrectas = <int>{};
     while (incorrectas.length < 3) {
-      int falsa = respuesta + _random.nextInt(11) - 5;
-      if (falsa != respuesta && falsa > 0) {
-        incorrectas.add(falsa);
-      }
+      final falsa = respuesta + _random.nextInt(11) - 5;
+      if (falsa != respuesta && falsa > 0) incorrectas.add(falsa);
     }
 
-    final opciones = [
-      respuesta.toString(),
-      ...incorrectas.map((e) => e.toString()),
-    ];
+    final opciones = [respuesta.toString(), ...incorrectas.map((e) => e.toString())];
     opciones.shuffle(_random);
 
     return {
@@ -111,18 +105,14 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     };
   }
 
-  // 📊 Aciertos / intentos por tema durante el diagnóstico
-  final Map<int, int> _aciertosPorTipo = {0: 0, 1: 0, 2: 0, 3: 0};
-  final Map<int, int> _intentosPorTipo = {0: 0, 1: 0, 2: 0, 3: 0};
-
   // ── Lógica de respuesta ───────────────────────────────────────────────────
   void _responder(String opcion) {
     if (_respondido) return;
     final correcta = _preguntas[_actual]['correcta'] as String;
-    final tipo = _preguntas[_actual]['tipo'] as int;
+    final tipo     = _preguntas[_actual]['tipo'] as int;
     setState(() {
       _seleccionada = opcion;
-      _respondido = true;
+      _respondido   = true;
       _intentosPorTipo[tipo] = (_intentosPorTipo[tipo] ?? 0) + 1;
       if (opcion == correcta) {
         _aciertos++;
@@ -137,7 +127,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
         setState(() {
           _actual++;
           _seleccionada = null;
-          _respondido = false;
+          _respondido   = false;
         });
       } else {
         _terminar();
@@ -145,47 +135,64 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     });
   }
 
-  // ── Guardar resultado y navegar ───────────────────────────────────────────
-  Future<void> _terminar() async {
-    final total = _preguntas.length;
-    final pct = _aciertos / total;
+  // ── Calcular nivel a partir del resultado ─────────────────────────────────
+  (int gradoNum, String grado) _calcularNivel() {
+    final pct = _aciertos / _preguntas.length;
+    if (pct >= 0.8) return (4, 'Nivel Avanzado');
+    if (pct >= 0.6) return (3, 'Nivel Intermedio');
+    if (pct >= 0.4) return (2, 'Nivel Básico');
+    return (1, 'Nivel Inicial');
+  }
 
-    int gradoNum;
-    String grado;
-    if (pct >= 0.8) {
-      gradoNum = 4;
-      grado = 'Nivel Avanzado';
-    } else if (pct >= 0.6) {
-      gradoNum = 3;
-      grado = 'Nivel Intermedio';
-    } else if (pct >= 0.4) {
-      gradoNum = 2;
-      grado = 'Nivel Basico';
-    } else {
-      gradoNum = 1;
-      grado = 'Nivel Inicial';
+  // ── Finalizar: práctica vs diagnóstico real ───────────────────────────────
+  Future<void> _terminar() async {
+    final (gradoNum, grado) = _calcularNivel();
+
+    if (widget.isPractice) {
+      // ── Modo práctica: solo mostrar resumen, no guardar nada ──────────────
+      if (!mounted) return;
+      _mostrarResumenPractica(gradoNum, grado);
+      return;
     }
 
-    // El diagnóstico NO escribe en temas.X — eso queda solo para la práctica real,
-    // así la pantalla de Progreso refleja únicamente lo que el usuario ha practicado.
-    await FirebaseFirestore.instance.collection('users').doc(_user.uid).update({
-      'aciertos': _aciertos,
-      'errores': _errores,
-      'intentos': total,
-      'tiempo_total': total * 20.0,
-      'grado': grado,
-      'grado_num': gradoNum,
-      // Reset por si reinició diagnóstico desde el perfil
-      'temas': {
-        'sumas': {'aciertos': 0, 'intentos': 0},
-        'restas': {'aciertos': 0, 'intentos': 0},
-        'multiplicacion': {'aciertos': 0, 'intentos': 0},
-        'division': {'aciertos': 0, 'intentos': 0},
-      },
-    });
+    // ── Diagnóstico inicial: guardar resultado ────────────────────────────
+    if (LocalStorageService.isGuest) {
+      // Invitado → guardar en local
+      await LocalStorageService.saveData({
+        ...LocalStorageService.getData(),
+        'grado': grado,
+        'grado_num': gradoNum,
+        'aciertos': _aciertos,
+        'errores': _errores,
+        'intentos': _preguntas.length,
+        'tiempo_total': _preguntas.length * 20.0,
+        'temas': {
+          'sumas':          {'aciertos': _aciertosPorTipo[0] ?? 0, 'intentos': _intentosPorTipo[0] ?? 0},
+          'restas':         {'aciertos': _aciertosPorTipo[1] ?? 0, 'intentos': _intentosPorTipo[1] ?? 0},
+          'multiplicacion': {'aciertos': _aciertosPorTipo[2] ?? 0, 'intentos': _intentosPorTipo[2] ?? 0},
+          'division':       {'aciertos': _aciertosPorTipo[3] ?? 0, 'intentos': _intentosPorTipo[3] ?? 0},
+        },
+      });
+    } else {
+      // Usuario con cuenta → guardar en Firestore
+      final user = FirebaseAuth.instance.currentUser!;
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'aciertos':    _aciertos,
+        'errores':     _errores,
+        'intentos':    _preguntas.length,
+        'tiempo_total': _preguntas.length * 20.0,
+        'grado':       grado,
+        'grado_num':   gradoNum,
+        'temas': {
+          'sumas':          {'aciertos': 0, 'intentos': 0},
+          'restas':         {'aciertos': 0, 'intentos': 0},
+          'multiplicacion': {'aciertos': 0, 'intentos': 0},
+          'division':       {'aciertos': 0, 'intentos': 0},
+        },
+      });
+    }
 
     if (!mounted) return;
-
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -193,50 +200,154 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
     );
   }
 
+  // ── Diálogo de resumen (modo práctica) ────────────────────────────────────
+  void _mostrarResumenPractica(int gradoNum, String grado) {
+    final List<Color> colores = [AppColors.temaSumas, AppColors.temaRestas, AppColors.temaMult, AppColors.temaDiv];
+    final List<String> nombres = ['Sumas', 'Restas', 'Multiplicación', 'División'];
+    final List<IconData> iconos = [Icons.add, Icons.remove, Icons.close, Icons.more_horiz];
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Práctica completada 🎉',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Resultado global
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      '$_aciertos / ${_preguntas.length}',
+                      style: const TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    Text('aciertos',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tu nivel estimado: $grado',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      '(tu nivel guardado no cambia)',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Resultado por tema
+              ...List.generate(4, (i) {
+                final ac = _aciertosPorTipo[i] ?? 0;
+                final int_ = _intentosPorTipo[i] ?? 0;
+                if (int_ == 0) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(children: [
+                    Icon(iconos[i], color: colores[i], size: 18),
+                    const SizedBox(width: 8),
+                    Text(nombres[i], style: const TextStyle(fontSize: 13)),
+                    const Spacer(),
+                    Text('$ac/$int_',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: colores[i])),
+                  ]),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);         // cierra diálogo
+              Navigator.pop(context);         // vuelve al Home/Perfil
+            },
+            child: const Text('Volver', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);         // cierra diálogo
+              // reinicia la práctica en la misma pantalla
+              setState(() {
+                _actual       = 0;
+                _aciertos     = 0;
+                _errores      = 0;
+                _seleccionada = null;
+                _respondido   = false;
+                _aciertosPorTipo.updateAll((_, __) => 0);
+                _intentosPorTipo.updateAll((_, __) => 0);
+                _preguntas.shuffle(_random);
+              });
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Repetir'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── UI ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final pregunta = _preguntas[_actual];
-    final opciones = pregunta['opciones'] as List<String>;
-    final correcta = pregunta['correcta'] as String;
-    final progreso = (_actual + 1) / _preguntas.length;
-    final tipo = pregunta['tipo'] as int;
+    final pregunta  = _preguntas[_actual];
+    final opciones  = pregunta['opciones'] as List<String>;
+    final correcta  = pregunta['correcta'] as String;
+    final progreso  = (_actual + 1) / _preguntas.length;
+    final tipo      = pregunta['tipo'] as int;
 
-    // Color e icono según tipo de operación (versiones para dark mode)
-    final List<Color> coloresTipo = [
-      AppColors.temaSumas,
-      AppColors.temaRestas,
-      AppColors.temaMult,
-      AppColors.temaDiv,
-    ];
-    final List<String> labelsTipo = [
-      'Suma',
-      'Resta',
-      'Multiplicación',
-      'División',
-    ];
-    final List<IconData> iconosTipo = [
-      Icons.add,
-      Icons.remove,
-      Icons.close,
-      Icons.more_horiz,
-    ];
-
-    final colorTipo = coloresTipo[tipo];
+    final coloresTipo = [AppColors.temaSumas, AppColors.temaRestas, AppColors.temaMult, AppColors.temaDiv];
+    final labelsTipo  = ['Suma', 'Resta', 'Multiplicación', 'División'];
+    final iconosTipo  = [Icons.add, Icons.remove, Icons.close, Icons.more_horiz];
+    final colorTipo   = coloresTipo[tipo];
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Diagnóstico inicial',
-          style: TextStyle(
+        automaticallyImplyLeading: widget.isPractice,
+        title: Text(
+          widget.isPractice ? 'Modo práctica' : 'Diagnóstico inicial',
+          style: const TextStyle(
             color: AppColors.textPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: widget.isPractice
+            ? [
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Chip(
+                    label: const Text('Solo práctica',
+                        style: TextStyle(fontSize: 11, color: Colors.white)),
+                    backgroundColor: AppColors.primary,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ]
+            : null,
       ),
       body: SafeArea(
         child: Padding(
@@ -257,10 +368,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: colorTipo.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(20),
@@ -269,14 +377,8 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                       children: [
                         Icon(iconosTipo[tipo], color: colorTipo, size: 13),
                         const SizedBox(width: 4),
-                        Text(
-                          labelsTipo[tipo],
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: colorTipo,
-                          ),
-                        ),
+                        Text(labelsTipo[tipo],
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: colorTipo)),
                       ],
                     ),
                   ),
@@ -294,54 +396,30 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
               ),
               const SizedBox(height: 14),
 
-              // ── Puntaje en tiempo real ───────────────────────────────
+              // ── Puntaje en tiempo real ────────────────────────────────
               Row(
                 children: [
-                  const Icon(
-                    Icons.check_circle,
-                    color: AppColors.success,
-                    size: 16,
-                  ),
+                  const Icon(Icons.check_circle, color: AppColors.success, size: 16),
                   const SizedBox(width: 4),
-                  Text(
-                    '$_aciertos correctas',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.success,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  Text('$_aciertos correctas',
+                      style: const TextStyle(fontSize: 12, color: AppColors.success, fontWeight: FontWeight.w500)),
                   const SizedBox(width: 16),
-                  const Icon(
-                    Icons.cancel,
-                    color: AppColors.danger,
-                    size: 16,
-                  ),
+                  const Icon(Icons.cancel, color: AppColors.danger, size: 16),
                   const SizedBox(width: 4),
-                  Text(
-                    '$_errores incorrectas',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.danger,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  Text('$_errores incorrectas',
+                      style: const TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w500)),
                 ],
               ),
               const SizedBox(height: 28),
 
-              // ── Tarjeta de pregunta ──────────────────────────────────
+              // ── Tarjeta pregunta ──────────────────────────────────────
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+                padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: colorTipo.withValues(alpha: 0.4),
-                    width: 1.5,
-                  ),
+                  border: Border.all(color: colorTipo.withValues(alpha: 0.4), width: 1.5),
                 ),
                 child: Text(
                   pregunta['pregunta'] as String,
@@ -356,7 +434,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
               ),
               const SizedBox(height: 28),
 
-              // ── Opciones ────────────────────────────────────────────
+              // ── Opciones ──────────────────────────────────────────────
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
@@ -365,7 +443,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                   childAspectRatio: 2.2,
                   physics: const NeverScrollableScrollPhysics(),
                   children: opciones.map((op) {
-                    final esCorrecta = op == correcta;
+                    final esCorrecta   = op == correcta;
                     final esSeleccionada = op == _seleccionada;
 
                     Color borde = AppColors.border;
@@ -398,14 +476,11 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                           border: Border.all(color: borde, width: 1.5),
                         ),
                         child: Center(
-                          child: Text(
-                            op,
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: textoColor,
-                            ),
-                          ),
+                          child: Text(op,
+                              style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                  color: textoColor)),
                         ),
                       ),
                     );

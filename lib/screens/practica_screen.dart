@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/ia_service.dart';
+import '../services/local_storage_service.dart';
+import '../services/sync_service.dart';
 import '../theme/app_theme.dart';
 
 /// Tema disponible para practicar
@@ -83,7 +85,8 @@ class PracticaScreen extends StatefulWidget {
 
 class _PracticaScreenState extends State<PracticaScreen> {
   final _random = Random();
-  final _user = FirebaseAuth.instance.currentUser!;
+  // Puede ser null cuando el usuario juega como invitado
+  final _user = FirebaseAuth.instance.currentUser;
 
   _Fase _fase = _Fase.seleccion;
 
@@ -167,52 +170,76 @@ class _PracticaScreenState extends State<PracticaScreen> {
   }
 
   // ─── Racha de días consecutivos ───────────────────────────────────────────
-  /// Actualiza el campo [racha] y [ultimaPractica] en Firestore.
-  /// Solo se ejecuta una vez por sesión (cuando es la primera respuesta del día).
-  Future<void> _actualizarRachaDias(DocumentReference ref) async {
-    if (_rachaActualizadaHoy) return; // Ya lo hicimos hoy en esta sesión
+  Future<void> _actualizarRachaDias(DocumentReference? ref) async {
+    if (_rachaActualizadaHoy) return;
 
     try {
-      final doc = await ref.get();
-      final data = doc.data() as Map<String, dynamic>?;
-      if (data == null) return;
-
       final ahora = DateTime.now();
-      final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+      final hoy   = DateTime(ahora.year, ahora.month, ahora.day);
 
-      final ultimaRaw = data['ultimaPractica'];
-      final DateTime? ultimaDt =
-          ultimaRaw is Timestamp ? ultimaRaw.toDate() : null;
+      if (LocalStorageService.isGuest) {
+        // ── Invitado: leer/escribir en local ─────────────────────────────
+        final data = LocalStorageService.getData();
+        final ultimaStr = data['ultimaPractica'] as String?;
+        final DateTime? ultimaDt =
+            ultimaStr != null ? DateTime.tryParse(ultimaStr) : null;
 
-      // Si ya practicó hoy, no tocar la racha
-      if (ultimaDt != null) {
-        final ultimoDia =
-            DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
-        if (hoy.difference(ultimoDia).inDays == 0) {
-          _rachaActualizadaHoy = true;
-          return;
+        if (ultimaDt != null) {
+          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          if (hoy.difference(ultimoDia).inDays == 0) {
+            _rachaActualizadaHoy = true;
+            return;
+          }
         }
-      }
 
-      // Calcular nueva racha
-      int nuevaRacha;
-      if (ultimaDt == null) {
-        nuevaRacha = 1; // Primera vez que practica
+        int nuevaRacha;
+        if (ultimaDt == null) {
+          nuevaRacha = 1;
+        } else {
+          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          final dias = hoy.difference(ultimoDia).inDays;
+          nuevaRacha = dias == 1 ? ((data['racha'] ?? 0) as int) + 1 : 1;
+        }
+
+        await LocalStorageService.updateFields({
+          'racha': nuevaRacha,
+          'ultimaPractica': hoy.toIso8601String(),
+        });
+        _rachaActualizadaHoy = true;
       } else {
-        final ultimoDia =
-            DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
-        final diasDesde = hoy.difference(ultimoDia).inDays;
-        nuevaRacha = diasDesde == 1
-            ? ((data['racha'] ?? 0) as int) + 1 // Practicó ayer → continúa
-            : 1; // Saltó un día o más → reinicia
+        // ── Con cuenta: leer/escribir en Firestore ────────────────────────
+        if (ref == null) return;
+        final doc  = await ref.get();
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) return;
+
+        final ultimaRaw = data['ultimaPractica'];
+        final DateTime? ultimaDt =
+            ultimaRaw is Timestamp ? ultimaRaw.toDate() : null;
+
+        if (ultimaDt != null) {
+          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          if (hoy.difference(ultimoDia).inDays == 0) {
+            _rachaActualizadaHoy = true;
+            return;
+          }
+        }
+
+        int nuevaRacha;
+        if (ultimaDt == null) {
+          nuevaRacha = 1;
+        } else {
+          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          final dias = hoy.difference(ultimoDia).inDays;
+          nuevaRacha = dias == 1 ? ((data['racha'] ?? 0) as int) + 1 : 1;
+        }
+
+        await ref.update({
+          'racha': nuevaRacha,
+          'ultimaPractica': Timestamp.fromDate(hoy),
+        });
+        _rachaActualizadaHoy = true;
       }
-
-      await ref.update({
-        'racha': nuevaRacha,
-        'ultimaPractica': Timestamp.fromDate(hoy),
-      });
-
-      _rachaActualizadaHoy = true;
     } catch (e) {
       debugPrint('Error actualizando racha de días: $e');
     }
@@ -351,95 +378,109 @@ class _PracticaScreenState extends State<PracticaScreen> {
     });
   }
 
-  /// Actualiza Firestore. La IA es best-effort.
+  /// Guarda una respuesta en Firestore o en local según el modo de sesión.
   Future<void> _guardarRespuesta(bool correcta) async {
-    final ref = FirebaseFirestore.instance.collection('users').doc(_user.uid);
     final tema = widget.tema.clave;
+    int puntosGanados = correcta
+        ? (10 + (_rachaActual > 0 && _rachaActual % 5 == 0 ? 20 : 0))
+        : 0;
 
-    int puntosGanados = 0;
-    if (correcta) {
-      puntosGanados = 10;
-      if (_rachaActual > 0 && _rachaActual % 5 == 0) {
-        puntosGanados += 20;
-      }
-    }
+    if (LocalStorageService.isGuest) {
+      // ── Invitado: actualizar SharedPreferences ─────────────────────────
+      await LocalStorageService.increment('aciertos', correcta ? 1 : 0);
+      await LocalStorageService.increment('errores',  correcta ? 0 : 1);
+      await LocalStorageService.increment('intentos', 1);
+      await LocalStorageService.increment('tiempo_total', 20);
+      await LocalStorageService.incrementNested('temas.$tema.intentos', 1);
+      if (correcta) await LocalStorageService.incrementNested('temas.$tema.aciertos', 1);
+      if (puntosGanados > 0) await LocalStorageService.increment('puntos', puntosGanados);
 
-    final updates = <String, Object?>{
-      'aciertos': FieldValue.increment(correcta ? 1 : 0),
-      'errores': FieldValue.increment(correcta ? 0 : 1),
-      'intentos': FieldValue.increment(1),
-      'tiempo_total': FieldValue.increment(20),
-      'temas.$tema.intentos': FieldValue.increment(1),
-      if (correcta) 'temas.$tema.aciertos': FieldValue.increment(1),
-      if (puntosGanados > 0) 'puntos': FieldValue.increment(puntosGanados),
-    };
+      await _actualizarRachaDias(null);
 
-    try {
-      await ref.update(updates);
-    } catch (e) {
-      debugPrint('Error guardando respuesta: $e');
-    }
-
-    // 📅 Actualizar racha de días (máximo una vez por sesión)
-    await _actualizarRachaDias(ref);
-
-    try {
-      final docActual = await ref.get();
-      final data = docActual.data();
-      if (data == null) return;
-
-      final ia = await IAService.clasificar(
-        aciertos: (data['aciertos'] ?? 0) as int,
-        errores: (data['errores'] ?? 0) as int,
-        tiempo: ((data['tiempo_total'] ?? 0) as num).toDouble() /
-            ((data['intentos'] ?? 1) as int).clamp(1, 1 << 31),
-        intentos: (data['intentos'] ?? 0) as int,
-      );
-
-      final nuevoGrado = (ia['grado'] as num).toInt();
-      await ref.update({
-        'grado': ia['descripcion'],
-        'grado_num': nuevoGrado,
-      });
-
-      // 🎯 Adaptar dificultad y avisar si el nivel cambió
-      if (nuevoGrado != _gradoActual && mounted) {
-        final subio = nuevoGrado > _gradoActual;
-        setState(() => _gradoActual = nuevoGrado);
-        final nombre = _nombresGrado.elementAtOrNull(nuevoGrado) ??
-            'Nivel $nuevoGrado';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                Text(subio ? '🔥' : '💡', style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    subio
-                        ? '¡Subiste a $nombre!'
-                        : 'Ajustando dificultad a $nombre',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: subio ? Colors.green[700] : Colors.orange[700],
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            margin: const EdgeInsets.all(12),
-          ),
+      // IA adaptativa para invitados (usa datos locales)
+      try {
+        final data = LocalStorageService.getData();
+        final ia = await IAService.clasificar(
+          aciertos: (data['aciertos'] ?? 0) as int,
+          errores:  (data['errores']  ?? 0) as int,
+          tiempo: ((data['tiempo_total'] ?? 0) as num).toDouble() /
+              ((data['intentos'] ?? 1) as int).clamp(1, 1 << 31),
+          intentos: (data['intentos'] ?? 0) as int,
         );
+        final nuevoGrado = (ia['grado'] as num).toInt();
+        await LocalStorageService.updateFields({
+          'grado': ia['descripcion'],
+          'grado_num': nuevoGrado,
+        });
+        _mostrarCambioNivel(nuevoGrado);
+      } catch (e) {
+        debugPrint('IA no disponible: $e');
       }
-    } catch (e) {
-      debugPrint('IA no disponible: $e');
+    } else {
+      // ── Con cuenta: actualizar Firestore ────────────────────────────────
+      final ref = FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user!.uid);
+
+      try {
+        await SyncService.wrap(() => ref.update({
+          'aciertos':          FieldValue.increment(correcta ? 1 : 0),
+          'errores':           FieldValue.increment(correcta ? 0 : 1),
+          'intentos':          FieldValue.increment(1),
+          'tiempo_total':      FieldValue.increment(20),
+          'temas.$tema.intentos': FieldValue.increment(1),
+          if (correcta) 'temas.$tema.aciertos': FieldValue.increment(1),
+          if (puntosGanados > 0) 'puntos': FieldValue.increment(puntosGanados),
+        }));
+      } catch (e) {
+        debugPrint('Error guardando respuesta: $e');
+      }
+
+      await _actualizarRachaDias(ref);
+
+      try {
+        final docActual = await ref.get();
+        final data = docActual.data();
+        if (data == null) return;
+
+        final ia = await IAService.clasificar(
+          aciertos: (data['aciertos'] ?? 0) as int,
+          errores:  (data['errores']  ?? 0) as int,
+          tiempo: ((data['tiempo_total'] ?? 0) as num).toDouble() /
+              ((data['intentos'] ?? 1) as int).clamp(1, 1 << 31),
+          intentos: (data['intentos'] ?? 0) as int,
+        );
+        final nuevoGrado = (ia['grado'] as num).toInt();
+        await ref.update({'grado': ia['descripcion'], 'grado_num': nuevoGrado});
+        _mostrarCambioNivel(nuevoGrado);
+      } catch (e) {
+        debugPrint('IA no disponible: $e');
+      }
     }
+  }
+
+  void _mostrarCambioNivel(int nuevoGrado) {
+    if (nuevoGrado == _gradoActual || !mounted) return;
+    final subio = nuevoGrado > _gradoActual;
+    setState(() => _gradoActual = nuevoGrado);
+    final nombre = _nombresGrado.elementAtOrNull(nuevoGrado) ?? 'Nivel $nuevoGrado';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        Text(subio ? '🔥' : '💡', style: const TextStyle(fontSize: 18)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            subio ? '¡Subiste a $nombre!' : 'Ajustando dificultad a $nombre',
+            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
+          ),
+        ),
+      ]),
+      backgroundColor: subio ? Colors.green[700] : Colors.orange[700],
+      duration: const Duration(seconds: 2),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.all(12),
+    ));
   }
 
   // ─── Confirmar salida durante el juego ───────────────────────────────────

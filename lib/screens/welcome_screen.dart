@@ -1,11 +1,33 @@
 // lib/screens/welcome_screen.dart
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../services/local_storage_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
+import 'diagnostico_screen.dart';
+import 'home_inicio.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
+
+  Future<void> _jugarSinCuenta(BuildContext context) async {
+    await LocalStorageService.startGuestSession();
+    if (!context.mounted) return;
+
+    // Si ya hizo el diagnóstico antes → ir al home directamente
+    if (LocalStorageService.hasGuestData) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } else {
+      // Primera vez → diagnóstico inicial
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DiagnosticoScreen()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +97,34 @@ class WelcomeScreen extends StatelessWidget {
                   onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // ── Jugar sin cuenta ──────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: TextButton(
+                    onPressed: () => _jugarSinCuenta(context),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.black87,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(
+                          color: Colors.black38,
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    child: const Text(
+                      'Jugar sin cuenta',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 50),
