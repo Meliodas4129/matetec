@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/local_storage_service.dart';
+import '../widgets/sync_indicator.dart';
+import 'admin_screen.dart';
 import 'login_screen.dart';
+import 'welcome_screen.dart';
 import 'diagnostico_screen.dart';
 import 'practica_screen.dart';
 
@@ -14,94 +18,74 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-
-  final _user = FirebaseAuth.instance.currentUser!;
   static const rojo = Color(0xFFE53935);
 
-  Future<void> _reiniciarDiagnostico() async {
-    final ref = FirebaseFirestore.instance.collection('users').doc(_user.uid);
-    await ref.update({
-      "aciertos": 0,
-      "errores": 0,
-      "intentos": 0,
-      "tiempo_total": 0,
-      "grado": "Pendiente",
-      "grado_num": 0,
-      "racha": 0,
-      "puntos": 0,
-      // 📚 Reset de progreso por tema
-      "temas": {
-        "sumas": {"aciertos": 0, "intentos": 0},
-        "restas": {"aciertos": 0, "intentos": 0},
-        "multiplicacion": {"aciertos": 0, "intentos": 0},
-        "division": {"aciertos": 0, "intentos": 0},
-      },
-    });
+  // Construye las 4 pantallas a partir de un mapa de datos (Firestore o local)
+  List<Widget> _buildScreens(Map<String, dynamic> data, {bool isGuest = false}) {
+    final String nombre   = data["nombre"]       ?? (isGuest ? 'Invitado' : 'Usuario');
+    final String grado    = data["grado"]        ?? "";
+    final String email    = data["email"]        ?? "";
+    final String rol      = data["rol"]          ?? "estudiante";
+    final int    gradoNum = data["grado_num"]    ?? 1;
+    final int    aciertos = data["aciertos"]     ?? 0;
+    final int    intentos = data["intentos"]     ?? 1;
+    final int    racha    = data["racha"]        ?? 0;
+    final int    puntos   = data["puntos"]       ?? 0;
+    final double progreso = intentos > 0 ? aciertos / intentos : 0.0;
+    final Map<String, dynamic> temas =
+        (data["temas"] as Map<String, dynamic>?) ?? const {};
+
+    return [
+      _Inicio(nombre: nombre, grado: grado, gradoNum: gradoNum, racha: racha, puntos: puntos),
+      _Progreso(aciertos: aciertos, intentos: intentos, progreso: progreso, temas: temas),
+      const _Retos(),
+      _Perfil(
+        nombre: nombre,
+        grado: grado,
+        email: email,
+        aciertos: aciertos,
+        racha: racha,
+        puntos: puntos,
+        isGuest: isGuest,
+        isAdmin: rol == 'admin',
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
+    final isGuest = LocalStorageService.isGuest;
+
     return PopScope(
       canPop: false,
       child: Scaffold(
         backgroundColor: const Color(0xFFFAFAFA),
         body: SafeArea(
           bottom: false,
-          child: StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .doc(_user.uid)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final data = snapshot.data!.data() as Map<String, dynamic>;
-
-              final String nombre = data["nombre"] ?? "Usuario";
-              final String grado = data["grado"] ?? "";
-              final String email = data["email"] ?? "";
-              final int gradoNum = data["grado_num"] ?? 1;
-              final int aciertos = data["aciertos"] ?? 0;
-              final int intentos = data["intentos"] ?? 1;
-              final int racha = data["racha"] ?? 0;
-              final int puntos = data["puntos"] ?? 0;
-              final double progreso = intentos > 0 ? aciertos / intentos : 0.0;
-
-              // 📚 Sub-mapa con progreso por tema (puede no existir en usuarios viejos)
-              final Map<String, dynamic> temas =
-                  (data["temas"] as Map<String, dynamic>?) ?? const {};
-
-              final List<Widget> screens = [
-                _Inicio(
-                  nombre: nombre,
-                  grado: grado,
-                  gradoNum: gradoNum,
-                  racha: racha,
-                  puntos: puntos,
+          child: isGuest
+              // ── Modo invitado: datos desde ValueNotifier local ──────────
+              ? ValueListenableBuilder<Map<String, dynamic>>(
+                  valueListenable: LocalStorageService.guestDataNotifier,
+                  builder: (context, data, _) {
+                    final screens = _buildScreens(data, isGuest: true);
+                    return IndexedStack(index: _currentIndex, children: screens);
+                  },
+                )
+              // ── Usuario con cuenta: datos desde Firestore ───────────────
+              : StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(FirebaseAuth.instance.currentUser!.uid)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final data = snapshot.data!.data() as Map<String, dynamic>;
+                    final screens = _buildScreens(data);
+                    return IndexedStack(index: _currentIndex, children: screens);
+                  },
                 ),
-                _Progreso(
-                  aciertos: aciertos,
-                  intentos: intentos,
-                  progreso: progreso,
-                  temas: temas,
-                ),
-                const _Retos(),
-                _Perfil(
-                  nombre: nombre,
-                  grado: grado,
-                  email: email,
-                  aciertos: aciertos,
-                  racha: racha,
-                  puntos: puntos,
-                  onReiniciarDiagnostico: _reiniciarDiagnostico,
-                ),
-              ];
-
-              return IndexedStack(index: _currentIndex, children: screens);
-            },
-          ),
         ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
@@ -279,6 +263,9 @@ class _Inicio extends StatelessWidget {
                   ],
                 ),
               ),
+              // ── Indicador de sincronización con la nube ───────────────
+              const SyncIndicator(),
+              const SizedBox(width: 8),
               CircleAvatar(
                 radius: 24,
                 backgroundColor: const Color(0xFFE53935),
@@ -1120,7 +1107,8 @@ class _Perfil extends StatelessWidget {
   final int aciertos;
   final int racha;
   final int puntos;
-  final Future<void> Function() onReiniciarDiagnostico;
+  final bool isGuest;
+  final bool isAdmin;
 
   const _Perfil({
     required this.nombre,
@@ -1129,7 +1117,8 @@ class _Perfil extends StatelessWidget {
     required this.aciertos,
     required this.racha,
     required this.puntos,
-    required this.onReiniciarDiagnostico,
+    this.isGuest = false,
+    this.isAdmin = false,
   });
 
   @override
@@ -1232,74 +1221,58 @@ class _Perfil extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // ── Repetir diagnóstico ✅ CORREGIDO ──────────────────────────
+          // ── Panel de administrador (solo admins) ──────────────────────
+          if (isAdmin) ...[
+            _MenuItem(
+              icon: Icons.admin_panel_settings_outlined,
+              label: 'Panel de administrador',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminScreen()),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // ── Modo práctica (antes "Repetir diagnóstico") ───────────────
           _MenuItem(
-            icon: Icons.refresh_outlined,
-            label: 'Repetir diagnóstico',
-            onTap: () async {
-              final confirmar = await showDialog<bool>(
-                context: context,
-                builder: (_) => AlertDialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  title: const Text(
-                    '¿Repetir diagnóstico?',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  content: const Text(
-                    'Esto reiniciará tu nivel y todas tus estadísticas. '
-                    'Tu progreso actual se perderá. ¿Deseas continuar?',
-                    style: TextStyle(fontSize: 13, color: Colors.grey),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, false),
-                      child: const Text(
-                        'Cancelar',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context, true),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFE53935),
-                      ),
-                      child: const Text(
-                        'Reiniciar',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
+            icon: Icons.sports_esports_outlined,
+            label: 'Modo práctica',
+            onTap: () {
+              // Abre el diagnóstico como práctica libre: no resetea nada
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DiagnosticoScreen(isPractice: true),
                 ),
               );
-
-              if (confirmar == true) {
-                await onReiniciarDiagnostico(); // 1. Resetear Firestore
-                if (!context.mounted) return;
-
-                Navigator.pushReplacement(
-                  // 2. Ir al diagnóstico ✅
-                  context,
-                  MaterialPageRoute(builder: (_) => const DiagnosticoScreen()),
-                );
-              }
             },
           ),
 
           const SizedBox(height: 8),
 
-          // ── Cerrar sesión ─────────────────────────────────────────────
+          // ── Salir / Cerrar sesión ─────────────────────────────────────
           InkWell(
             borderRadius: BorderRadius.circular(14),
             onTap: () async {
-              await FirebaseAuth.instance.signOut();
-              if (!context.mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-                (route) => false,
-              );
+              if (isGuest) {
+                // Invitado: terminar sesión local y volver a la bienvenida
+                await LocalStorageService.endGuestSession();
+                if (!context.mounted) return;
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (route) => false,
+                );
+              } else {
+                await FirebaseAuth.instance.signOut();
+                if (!context.mounted) return;
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
             child: Container(
               padding: const EdgeInsets.all(14),
@@ -1309,12 +1282,12 @@ class _Perfil extends StatelessWidget {
                 border: Border.all(color: const Color(0xFFFFCDD2)),
               ),
               child: Row(
-                children: const [
-                  Icon(Icons.logout, color: Color(0xFFB71C1C), size: 20),
-                  SizedBox(width: 12),
+                children: [
+                  const Icon(Icons.logout, color: Color(0xFFB71C1C), size: 20),
+                  const SizedBox(width: 12),
                   Text(
-                    'Cerrar sesión',
-                    style: TextStyle(
+                    isGuest ? 'Salir del modo invitado' : 'Cerrar sesión',
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: Color(0xFFB71C1C),
