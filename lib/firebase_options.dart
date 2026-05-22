@@ -64,6 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '372369190316',
     projectId: 'matetec-92c63',
     storageBucket: 'matetec-92c63.firebasestorage.app',
+    iosClientId: '372369190316-jca0of2hdmalm9duqpetglrub33j9m4a.apps.googleusercontent.com',
     iosBundleId: 'com.example.matetec',
   );
 
@@ -73,6 +74,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '372369190316',
     projectId: 'matetec-92c63',
     storageBucket: 'matetec-92c63.firebasestorage.app',
+    iosClientId: '372369190316-jca0of2hdmalm9duqpetglrub33j9m4a.apps.googleusercontent.com',
     iosBundleId: 'com.example.matetec',
   );
 
@@ -85,4 +87,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'matetec-92c63.firebasestorage.app',
     measurementId: 'G-BH8GTWPF2T',
   );
+
 }

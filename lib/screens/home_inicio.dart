@@ -8,6 +8,11 @@ import 'login_screen.dart';
 import 'welcome_screen.dart';
 import 'diagnostico_screen.dart';
 import 'practica_screen.dart';
+import 'evaluacion_final_screen.dart';
+import 'configuracion_screen.dart';
+import 'practica_screen.dart' show NivelDificultad;
+import 'perfil_editable_screen.dart';
+import 'test_ia_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,10 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Construye las 4 pantallas a partir de un mapa de datos (Firestore o local)
   List<Widget> _buildScreens(Map<String, dynamic> data, {bool isGuest = false}) {
-    final String nombre   = data["nombre"]       ?? (isGuest ? 'Invitado' : 'Usuario');
+    final String nombre   = data["nombre"]       ?? (data["email"]?.toString().isNotEmpty == true ? data["email"].toString().split('@')[0] : 'Usuario');
     final String grado    = data["grado"]        ?? "";
     final String email    = data["email"]        ?? "";
     final String rol      = data["rol"]          ?? "estudiante";
+    final String ciudad   = data["ciudad"]       ?? "";
+    final String fotoUrl  = data["fotoUrl"]      ?? "";
     final int    gradoNum = data["grado_num"]    ?? 1;
     final int    aciertos = data["aciertos"]     ?? 0;
     final int    intentos = data["intentos"]     ?? 1;
@@ -34,9 +41,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final double progreso = intentos > 0 ? aciertos / intentos : 0.0;
     final Map<String, dynamic> temas =
         (data["temas"] as Map<String, dynamic>?) ?? const {};
+    final List<String> temasDesbloqueados =
+        ((data["temas_desbloqueados"] as List?)?.cast<String>()) ?? ['sumas'];
 
     return [
-      _Inicio(nombre: nombre, grado: grado, gradoNum: gradoNum, racha: racha, puntos: puntos),
+      _Inicio(
+        nombre: nombre,
+        grado: grado,
+        gradoNum: gradoNum,
+        racha: racha,
+        puntos: puntos,
+        temasDesbloqueados: temasDesbloqueados,
+        temas: temas,
+      ),
       _Progreso(aciertos: aciertos, intentos: intentos, progreso: progreso, temas: temas),
       const _Retos(),
       _Perfil(
@@ -46,6 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
         aciertos: aciertos,
         racha: racha,
         puntos: puntos,
+        ciudad: ciudad,
+        fotoUrl: fotoUrl,
         isGuest: isGuest,
         isAdmin: rol == 'admin',
       ),
@@ -152,6 +171,8 @@ class _Inicio extends StatelessWidget {
   final int gradoNum;
   final int racha;
   final int puntos;
+  final List<String> temasDesbloqueados;
+  final Map<String, dynamic> temas;
 
   const _Inicio({
     required this.nombre,
@@ -159,44 +180,51 @@ class _Inicio extends StatelessWidget {
     required this.gradoNum,
     required this.racha,
     required this.puntos,
+    required this.temasDesbloqueados,
+    required this.temas,
   });
 
-  List<_Tema> get _temas => [
-    _Tema(
-      'Sumas',
-      Icons.add,
-      const Color(0xFFE53935),
-      const Color(0xFFFFEBEE),
-      'Practica sumando',
-      true,
-      TemaPractica.sumas,
+  // Orden fijo: sumas desbloquea restas, restas → mult, mult → div
+  static const _temasConfig = [
+    (
+      nombre: 'Sumas',
+      icono: Icons.add,
+      color: Color(0xFFE53935),
+      fondo: Color(0xFFFFEBEE),
+      subtitulo: 'Practica sumando',
+      clave: 'sumas',
+      siguiente: 'restas',
+      tema: TemaPractica.sumas,
     ),
-    _Tema(
-      'Restas',
-      Icons.remove,
-      const Color(0xFF1E88E5),
-      const Color(0xFFE3F2FD),
-      'Practica restando',
-      gradoNum >= 2,
-      TemaPractica.restas,
+    (
+      nombre: 'Restas',
+      icono: Icons.remove,
+      color: Color(0xFF1E88E5),
+      fondo: Color(0xFFE3F2FD),
+      subtitulo: 'Practica restando',
+      clave: 'restas',
+      siguiente: 'multiplicacion',
+      tema: TemaPractica.restas,
     ),
-    _Tema(
-      'Multiplicación',
-      Icons.close,
-      const Color(0xFF43A047),
-      const Color(0xFFE8F5E9),
-      'Tablas de multiplicar',
-      gradoNum >= 3,
-      TemaPractica.multiplicacion,
+    (
+      nombre: 'Multiplicación',
+      icono: Icons.close,
+      color: Color(0xFF43A047),
+      fondo: Color(0xFFE8F5E9),
+      subtitulo: 'Tablas de multiplicar',
+      clave: 'multiplicacion',
+      siguiente: 'division',
+      tema: TemaPractica.multiplicacion,
     ),
-    _Tema(
-      'División',
-      Icons.more_horiz,
-      const Color(0xFFFB8C00),
-      const Color(0xFFFFF3E0),
-      'Divisiones exactas',
-      gradoNum >= 4,
-      TemaPractica.division,
+    (
+      nombre: 'División',
+      icono: Icons.more_horiz,
+      color: Color(0xFFFB8C00),
+      fondo: Color(0xFFFFF3E0),
+      subtitulo: 'Divisiones exactas',
+      clave: 'division',
+      siguiente: '',
+      tema: TemaPractica.division,
     ),
   ];
 
@@ -314,6 +342,65 @@ class _Inicio extends StatelessWidget {
 
           const SizedBox(height: 32),
 
+          // ── Botón Probar IA ───────────────────────────────────────────
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TestIAScreen()),
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6C63FF), Color(0xFF9B88F0)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF6C63FF).withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.psychology, color: Colors.white, size: 28),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '🧠 Probar IA',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Descubre tu grado ideal',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
           // ── Sección de temas ──────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -327,7 +414,7 @@ class _Inicio extends StatelessWidget {
                 ),
               ),
               Text(
-                '${_temas.where((t) => t.desbloqueado).length}/${_temas.length}',
+                '${temasDesbloqueados.length}/${_temasConfig.length}',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -338,7 +425,7 @@ class _Inicio extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Sube de nivel para desbloquear más',
+            'Aprueba la evaluación de cada tema para avanzar',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
           const SizedBox(height: 16),
@@ -349,11 +436,28 @@ class _Inicio extends StatelessWidget {
               crossAxisCount: 2,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,
-              childAspectRatio: 1.05,
+              childAspectRatio: 0.88,
             ),
-            itemCount: _temas.length,
-            itemBuilder: (_, i) =>
-                _TemaCard(tema: _temas[i], gradoNum: gradoNum),
+            itemCount: _temasConfig.length,
+            itemBuilder: (_, i) {
+              final cfg = _temasConfig[i];
+              final desbloqueado = temasDesbloqueados.contains(cfg.clave);
+              final temaData =
+                  (temas[cfg.clave] as Map<String, dynamic>?) ?? {};
+              return _TemaCard(
+                nombre: cfg.nombre,
+                icono: cfg.icono,
+                color: cfg.color,
+                fondo: cfg.fondo,
+                subtitulo: cfg.subtitulo,
+                clave: cfg.clave,
+                siguienteTema: cfg.siguiente,
+                temaPractica: cfg.tema,
+                desbloqueado: desbloqueado,
+                gradoNum: gradoNum,
+                temaData: temaData,
+              );
+            },
           ),
         ],
       ),
@@ -445,53 +549,150 @@ class _StatPill extends StatelessWidget {
   }
 }
 
-class _Tema {
+class _TemaCard extends StatelessWidget {
   final String nombre;
   final IconData icono;
   final Color color;
   final Color fondo;
   final String subtitulo;
-  final bool desbloqueado;
+  final String clave;
+  final String siguienteTema;
   final TemaPractica temaPractica;
-  const _Tema(
-    this.nombre,
-    this.icono,
-    this.color,
-    this.fondo,
-    this.subtitulo,
-    this.desbloqueado,
-    this.temaPractica,
-  );
-}
-
-class _TemaCard extends StatelessWidget {
-  final _Tema tema;
+  final bool desbloqueado;
   final int gradoNum;
-  const _TemaCard({required this.tema, required this.gradoNum});
+  final Map<String, dynamic> temaData;
+
+  const _TemaCard({
+    required this.nombre,
+    required this.icono,
+    required this.color,
+    required this.fondo,
+    required this.subtitulo,
+    required this.clave,
+    required this.siguienteTema,
+    required this.temaPractica,
+    required this.desbloqueado,
+    required this.gradoNum,
+    required this.temaData,
+  });
+
+  // Datos de progreso hacia la evaluación
+  int get _intentos => (temaData['intentos'] ?? 0) as int;
+  int get _evalDesde => (temaData['eval_desde_intentos'] ?? 10) as int;
+  bool get _evalAprobada => (temaData['eval_aprobada'] ?? false) as bool;
+  bool get _puedeEvaluar => desbloqueado && !_evalAprobada && _intentos >= _evalDesde;
+  int get _practicasParaEval => (_evalDesde - _intentos).clamp(0, _evalDesde);
 
   void _abrirPractica(BuildContext context) {
+    // Mostrar diálogo para seleccionar dificultad
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Selecciona Dificultad'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Elige el nivel que deseas practicar:',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+        actions: [
+          // Botón Fácil
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PracticaScreen(
+                    tema: temaPractica,
+                    gradoNum: gradoNum,
+                    nivelDificultad: NivelDificultad.facil,
+                  ),
+                ),
+              );
+            },
+            child: const Text('🟢 Fácil\n(1-10)'),
+          ),
+          // Botón Normal
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PracticaScreen(
+                    tema: temaPractica,
+                    gradoNum: gradoNum,
+                    nivelDificultad: NivelDificultad.normal,
+                  ),
+                ),
+              );
+            },
+            child: const Text('🟡 Normal\n(1-100)'),
+          ),
+          // Botón Difícil
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PracticaScreen(
+                    tema: temaPractica,
+                    gradoNum: gradoNum,
+                    nivelDificultad: NivelDificultad.dificil,
+                  ),
+                ),
+              );
+            },
+            child: const Text('🔴 Difícil\n(1-1000)'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _abrirEvaluacion(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            PracticaScreen(tema: tema.temaPractica, gradoNum: gradoNum),
+        builder: (_) => EvaluacionFinalScreen(
+          tema: clave,
+          gradoNum: gradoNum,
+          siguienteTema: siguienteTema,
+          intentosActuales: _intentos,
+        ),
       ),
     );
   }
 
   void _mostrarBloqueado(BuildContext context) {
+    // Determinar qué tema prerequisito desbloquea éste
+    const prereqs = {
+      'restas': 'Sumas',
+      'multiplicacion': 'Restas',
+      'division': 'Multiplicación',
+    };
+    final prereq = prereqs[clave] ?? '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Sigue practicando para desbloquear ${tema.nombre}'),
+        content: Text(prereq.isNotEmpty
+            ? 'Aprueba la evaluación de $prereq para desbloquear $nombre'
+            : 'Completa los temas anteriores primero'),
         backgroundColor: Colors.grey.shade800,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(12),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final desbloqueado = tema.desbloqueado;
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -500,44 +701,69 @@ class _TemaCard extends StatelessWidget {
             ? () => _abrirPractica(context)
             : () => _mostrarBloqueado(context),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(
+              color: _puedeEvaluar
+                  ? color.withValues(alpha: 0.5)
+                  : Colors.grey.shade200,
+              width: _puedeEvaluar ? 1.5 : 1.0,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Ícono + badge
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: desbloqueado ? tema.fondo : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(14),
+                      color: desbloqueado ? fondo : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(13),
                     ),
                     child: Icon(
-                      desbloqueado ? tema.icono : Icons.lock_outline,
-                      color: desbloqueado ? tema.color : Colors.grey.shade400,
-                      size: 22,
+                      desbloqueado ? icono : Icons.lock_outline,
+                      color: desbloqueado ? color : Colors.grey.shade400,
+                      size: 21,
                     ),
                   ),
-                  if (desbloqueado)
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      color: Colors.grey.shade400,
-                      size: 18,
+                  if (_evalAprobada)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.check_circle_rounded,
+                          color: Colors.green, size: 15),
+                    )
+                  else if (_puedeEvaluar)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.emoji_events_rounded,
+                          color: Colors.amber, size: 15),
                     ),
                 ],
               ),
-              const Spacer(),
+
+              const SizedBox(height: 10),
+
+              // Nombre del tema
               Text(
-                tema.nombre,
+                nombre,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
                   color: desbloqueado
                       ? const Color(0xFF1A1A1A)
@@ -545,10 +771,83 @@ class _TemaCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                desbloqueado ? tema.subtitulo : 'Sube de nivel',
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-              ),
+
+              // Subtítulo / estado
+              if (!desbloqueado)
+                Text(
+                  'Bloquado',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                )
+              else if (_evalAprobada)
+                Text(
+                  '✓ Evaluación aprobada',
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.green.shade600,
+                      fontWeight: FontWeight.w500),
+                )
+              else if (_puedeEvaluar)
+                Text(
+                  '¡Listo para evaluar!',
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: color,
+                      fontWeight: FontWeight.w600),
+                )
+              else
+                Text(
+                  subtitulo,
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
+
+              const Spacer(),
+
+              // Barra de progreso hacia evaluación o botón ¡Evaluarme!
+              if (desbloqueado && !_evalAprobada) ...[
+                if (_puedeEvaluar) ...[
+                  // Botón de evaluación
+                  SizedBox(
+                    width: double.infinity,
+                    height: 30,
+                    child: ElevatedButton(
+                      onPressed: () => _abrirEvaluacion(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: color,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        '¡Evaluarme!',
+                        style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // Barra de progreso
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: _evalDesde > 0
+                          ? (_intentos / _evalDesde).clamp(0.0, 1.0)
+                          : 0.0,
+                      minHeight: 5,
+                      backgroundColor: Colors.grey.shade100,
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$_practicasParaEval más para evaluación',
+                    style: TextStyle(
+                        fontSize: 9, color: Colors.grey.shade500),
+                  ),
+                ],
+              ],
             ],
           ),
         ),
@@ -1107,6 +1406,8 @@ class _Perfil extends StatelessWidget {
   final int aciertos;
   final int racha;
   final int puntos;
+  final String ciudad;
+  final String fotoUrl;
   final bool isGuest;
   final bool isAdmin;
 
@@ -1117,6 +1418,8 @@ class _Perfil extends StatelessWidget {
     required this.aciertos,
     required this.racha,
     required this.puntos,
+    this.ciudad = "",
+    this.fotoUrl = "",
     this.isGuest = false,
     this.isAdmin = false,
   });
@@ -1211,13 +1514,28 @@ class _Perfil extends StatelessWidget {
           _MenuItem(
             icon: Icons.edit_outlined,
             label: 'Editar perfil',
-            onTap: () {},
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PerfilEditableScreen(
+                    nombre: nombre,
+                    email: email,
+                    ciudad: ciudad,
+                    fotoUrl: fotoUrl,
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 8),
           _MenuItem(
             icon: Icons.settings_outlined,
             label: 'Configuración',
-            onTap: () {},
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ConfiguracionScreen()),
+            ),
           ),
           const SizedBox(height: 8),
 

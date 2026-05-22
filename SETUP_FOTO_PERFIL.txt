@@ -1,0 +1,161 @@
+═══════════════════════════════════════════════════════════════════════════════
+  📸 SETUP: FOTO DE PERFIL CON CÁMARA Y GALERÍA
+═══════════════════════════════════════════════════════════════════════════════
+
+¡Todo el código está listo! Solo necesitas hacer 2 cambios manuales.
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ ANDROID - PERMISOS AGREGADOS AUTOMÁTICAMENTE
+═══════════════════════════════════════════════════════════════════════════════
+
+Archivo: android/app/src/main/AndroidManifest.xml
+
+✅ Los permisos ya se agregaron:
+  • android.permission.CAMERA
+  • android.permission.READ_EXTERNAL_STORAGE
+  • android.permission.WRITE_EXTERNAL_STORAGE
+
+NO NECESITAS HACER NADA EN ANDROID.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ iOS - CAMBIO MANUAL REQUERIDO
+═══════════════════════════════════════════════════════════════════════════════
+
+Necesitas agregar los permisos manualmente en:
+  ios/Runner/Info.plist
+
+PASOS:
+
+1. Abre el archivo: ios/Runner/Info.plist
+
+2. Busca la última línea antes de </plist>:
+   ```
+   </array>
+   </dict>
+   </plist>
+   ```
+
+3. Agrega ANTES de </dict> y después de </array>:
+
+   ```xml
+   <key>NSCameraUsageDescription</key>
+   <string>MateTec necesita acceso a la cámara para cambiar tu foto de perfil</string>
+   <key>NSPhotoLibraryUsageDescription</key>
+   <string>MateTec necesita acceso a tu galería para cambiar tu foto de perfil</string>
+   <key>NSPhotoLibraryAddUsageDescription</key>
+   <string>MateTec necesita permiso para guardar fotos en tu galería</string>
+   ```
+
+4. Guarda el archivo
+
+El archivo debería verse así al final:
+───────────────────────────────────────────
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>MateTec necesita acceso a la cámara para cambiar tu foto de perfil</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MateTec necesita acceso a tu galería para cambiar tu foto de perfil</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MateTec necesita permiso para guardar fotos en tu galería</string>
+	</dict>
+</plist>
+───────────────────────────────────────────
+
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ INSTALACIÓN FINAL
+═══════════════════════════════════════════════════════════════════════════════
+
+Después de agregar los permisos en iOS:
+
+1. En terminal, ve a la carpeta del proyecto:
+   cd C:\proyecto_matetec\matetec
+
+2. Descarga las nuevas dependencias:
+   flutter pub get
+
+3. Reconstruye la app (primero elimina build anterior):
+   flutter clean
+   flutter pub get
+   flutter run -d chrome
+
+O para Android/iOS:
+   flutter run -d android
+   flutter run -d iphone
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📱 PRUEBA LA FUNCIONALIDAD
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Abre la app
+2. Ve a Perfil → Editar Perfil
+3. Haz clic en la foto
+4. Aparecerá un diálogo con 3 opciones:
+   • Cancelar
+   • 📱 Galería
+   • 📷 Cámara
+
+5. Selecciona una opción
+6. Se comprimirá la imagen
+7. Se subirá a Firebase Storage
+8. Se guardará la URL en Firestore
+9. Verás un ✅ "Foto actualizada correctamente"
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔧 CÓMO FUNCIONA INTERNAMENTE
+═══════════════════════════════════════════════════════════════════════════════
+
+Cuando el usuario selecciona una foto:
+
+1. Se comprime a máximo 512x512 pixels y calidad 80%
+2. Se sube a Firebase Storage en: perfiles/{uid}/foto.jpg
+3. Se obtiene la URL pública de descarga
+4. Se guarda la URL en Firestore: users/{uid}/fotoUrl
+5. La foto se muestra en el CircleAvatar del perfil
+
+
+═══════════════════════════════════════════════════════════════════════════════
+⚙️ FIREBASE STORAGE - REGLAS DE SEGURIDAD
+═══════════════════════════════════════════════════════════════════════════════
+
+Si tienes problemas al subir fotos, verifica las reglas en:
+Firebase Console → Storage → Reglas
+
+Las reglas deben permitir que usuarios autenticados suban a su propia carpeta:
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /perfiles/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+  }
+}
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🆘 SOLUCIÓN DE PROBLEMAS
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ "No se abre el selector de foto"
+   → Verifica que los permisos estén configurados
+   → Reconstruye la app (flutter clean + flutter pub get)
+
+❌ "Error al subir foto"
+   → Verifica las reglas de Firebase Storage
+   → Comprueba que el usuario esté autenticado
+   → Mira la consola de Firebase para el error específico
+
+❌ "image_picker no se encuentra"
+   → Ejecuta: flutter pub get
+   → Reconstruye: flutter clean && flutter pub get
+
+❌ "Permission denied error en iOS"
+   → Verifica que agregaste los permisos en Info.plist
+   → Los textos deben estar exactamente como se muestra
+
+═══════════════════════════════════════════════════════════════════════════════

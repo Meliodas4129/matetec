@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-</dict>
-</plist>
+	<key>NSCameraUsageDescription</key>
+	<string>MateTec necesita acceso a la cámara para cambiar tu foto de perfil</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MateTec necesita acceso a tu galería para cambiar tu foto de perfil</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MateTec necesita permiso para guardar fotos en tu galería</string>
+	</dict>
+	</plist>

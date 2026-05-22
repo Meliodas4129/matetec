@@ -12,6 +12,33 @@ import '../theme/app_theme.dart';
 /// Tema disponible para practicar
 enum TemaPractica { sumas, restas, multiplicacion, division }
 
+/// Nivel de dificultad
+enum NivelDificultad { facil, normal, dificil }
+
+extension NivelDificultadX on NivelDificultad {
+  String get label {
+    switch (this) {
+      case NivelDificultad.facil:
+        return '🟢 Fácil';
+      case NivelDificultad.normal:
+        return '🟡 Normal';
+      case NivelDificultad.dificil:
+        return '🔴 Difícil';
+    }
+  }
+
+  String get descripcion {
+    switch (this) {
+      case NivelDificultad.facil:
+        return 'Números 1-10';
+      case NivelDificultad.normal:
+        return 'Números 1-100';
+      case NivelDificultad.dificil:
+        return 'Números 1-1000 + Tiempo limitado';
+    }
+  }
+}
+
 extension TemaPracticaX on TemaPractica {
   String get clave {
     switch (this) {
@@ -72,11 +99,13 @@ enum _Fase { seleccion, jugando, resultados }
 class PracticaScreen extends StatefulWidget {
   final TemaPractica tema;
   final int gradoNum;
+  final NivelDificultad nivelDificultad;
 
   const PracticaScreen({
     super.key,
     required this.tema,
     required this.gradoNum,
+    this.nivelDificultad = NivelDificultad.normal,
   });
 
   @override
@@ -245,17 +274,25 @@ class _PracticaScreenState extends State<PracticaScreen> {
     }
   }
 
-  // ─── Dificultad según grado ───────────────────────────────────────────────
+  // ─── Dificultad según grado + nivel ───────────────────────────────────────
   ({int max, int base}) get _rangos {
+    // Primero aplica el nivel de dificultad
+    int maxBase = switch (widget.nivelDificultad) {
+      NivelDificultad.facil => 10,
+      NivelDificultad.normal => 100,
+      NivelDificultad.dificil => 1000,
+    };
+
+    // Luego ajusta según el grado actual
     switch (_gradoActual) {
       case 4:
-        return (max: 50, base: 1);
+        return (max: (maxBase * 0.5).toInt(), base: 1);
       case 3:
-        return (max: 30, base: 1);
+        return (max: (maxBase * 0.4).toInt(), base: 1);
       case 2:
-        return (max: 15, base: 1);
+        return (max: (maxBase * 0.3).toInt(), base: 1);
       default:
-        return (max: 10, base: 1);
+        return (max: maxBase, base: 1);
     }
   }
 

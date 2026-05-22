@@ -1,0 +1,246 @@
+═══════════════════════════════════════════════════════════════════════════════
+  📋 GUÍA: PERFIL EDITABLE EN MATETEC
+═══════════════════════════════════════════════════════════════════════════════
+
+¡Tu pantalla de Perfil Editable está lista! 🎉
+
+═══════════════════════════════════════════════════════════════════════════════
+📱 FUNCIONALIDADES INCLUIDAS
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ EDITAR NOMBRE
+   • Campo de texto para cambiar nombre
+   • Se guarda en Firestore automáticamente
+   • Se actualiza en Firebase Auth también
+
+✅ EDITAR CIUDAD
+   • Campo opcional para agregar ciudad/estado
+   • Útil para estadísticas por región
+   • Se guarda en Firestore
+
+✅ VER EMAIL
+   • Se muestra pero NO se puede editar (por seguridad)
+   • Email verificado en Firebase Auth
+
+✅ FOTO DE PERFIL
+   • Botón para cambiar (próximamente con image_picker)
+   • Muestra instrucciones para cambiar foto
+   • Actualmente usa avatares de iniciales
+
+✅ VALIDACIÓN Y MENSAJES
+   • Valida que el nombre no esté vacío
+   • Muestra mensajes de éxito/error
+   • Indicador de carga mientras guarda
+
+═══════════════════════════════════════════════════════════════════════════════
+🚀 CÓMO USAR
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Abre la app → Ve a Perfil
+2. Haz clic en "Editar perfil"
+3. Se abrirá la pantalla de edición
+4. Cambia nombre y/o ciudad
+5. Haz clic en "Guardar Cambios"
+6. Verás un mensaje de confirmación
+7. Los datos se guardan automáticamente en Firestore
+
+═══════════════════════════════════════════════════════════════════════════════
+🎯 OPCIONAL: AGREGAR CAMBIO DE FOTO CON CAMERA/GALERÍA
+═══════════════════════════════════════════════════════════════════════════════
+
+Si quieres permitir que los usuarios cambien su foto desde cámara/galería:
+
+PASO 1: Agregar dependencia en pubspec.yaml
+───────────────────────────────────────────
+
+dependencies:
+  image_picker: ^1.0.0
+  firebase_storage: ^11.0.0
+
+Luego ejecuta: flutter pub get
+
+
+PASO 2: Reemplazar el método _mostrarDialogoFoto() en perfil_editable_screen.dart
+──────────────────────────────────────────────────────────────────────────────
+
+Reemplaza:
+void _mostrarDialogoFoto() {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Cambiar Foto'),
+      content: const Text(
+        'Para cambiar tu foto de perfil, ve a configuración o usa la cámara del dispositivo.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Entendido'),
+        ),
+      ],
+    ),
+  );
+}
+
+Por esto:
+
+Future<void> _mostrarDialogoFoto() async {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Cambiar Foto'),
+      content: const Text('¿De dónde quieres subir tu foto?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _seleccionarFoto(ImageSource.gallery);
+          },
+          child: const Text('📱 Galería'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _seleccionarFoto(ImageSource.camera);
+          },
+          child: const Text('📷 Cámara'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _seleccionarFoto(ImageSource source) async {
+  try {
+    final ImagePicker picker = ImagePicker();
+    final XFile? photo = await picker.pickImage(source: source);
+
+    if (photo == null) return;
+
+    setState(() => _guardando = true);
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Subir a Firebase Storage
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('perfiles/${user.uid}.jpg');
+
+    final bytes = await photo.readAsBytes();
+    await storageRef.putData(bytes);
+
+    // Obtener URL de descarga
+    final url = await storageRef.getDownloadURL();
+
+    // Actualizar en Firestore
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .update({'fotoUrl': url});
+
+    setState(() {
+      _mensaje = '✅ Foto actualizada';
+      _exito = true;
+      _guardando = false;
+    });
+
+  } catch (e) {
+    setState(() {
+      _mensaje = '❌ Error: ${e.toString()}';
+      _exito = false;
+      _guardando = false;
+    });
+  }
+}
+
+PASO 3: Agregar imports al inicio del archivo
+──────────────────────────────────────────────
+
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+
+
+PASO 4: Configurar permisos en tu Sistema Operativo
+
+ANDROID (android/app/src/main/AndroidManifest.xml):
+─────────────────────────────────────────────────
+
+Agrega dentro de <manifest>:
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+iOS (ios/Runner/Info.plist):
+──────────────────────────
+
+Agrega:
+<key>NSCameraUsageDescription</key>
+<string>MateTec necesita acceso a la cámara para cambiar tu foto de perfil</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>MateTec necesita acceso a tu galería para cambiar tu foto de perfil</string>
+
+
+PASO 5: Prueba
+──────────────
+
+Después de hacer estos cambios:
+1. flutter pub get
+2. Recarga la app
+3. Ve a Perfil → Editar → Toca la foto
+4. Aparecerá el diálogo con opción de cámara/galería
+5. Selecciona una foto
+6. Se sube a Firebase Storage automáticamente
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 ESTRUCTURA DE DATOS EN FIRESTORE
+═══════════════════════════════════════════════════════════════════════════════
+
+Después de editar el perfil, tu usuario en Firestore se verá así:
+
+users/
+  ├─ uid_del_usuario/
+  │   ├─ nombre: "Juan Pérez"
+  │   ├─ email: "juan@example.com"
+  │   ├─ ciudad: "México"
+  │   ├─ fotoUrl: "https://firebasestorage.googleapis.com/..." (opcional)
+  │   ├─ grado: "3° de primaria"
+  │   ├─ grado_num: 3
+  │   ├─ aciertos: 245
+  │   ├─ racha: 12
+  │   ├─ puntos: 3450
+  │   └─ ultimaActualizacion: 2024-05-20 10:30:45
+
+═══════════════════════════════════════════════════════════════════════════════
+🆘 SOLUCIÓN DE PROBLEMAS
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ "Error: la pantalla no se abre"
+   → Verifica que los imports estén correctos
+   → Comprueba que perfil_editable_screen.dart existe
+
+❌ "Cambios no se guardan"
+   → Verifica que Firestore esté configurado
+   → Revisa que el usuario esté autenticado
+   → Mira la consola de Firebase para errores
+
+❌ "La foto no se actualiza"
+   → Esto solo funciona si instalas image_picker (opcional)
+   → Por ahora, los usuarios ven un avatar con sus iniciales
+
+═══════════════════════════════════════════════════════════════════════════════
+✨ PRÓXIMAS MEJORAS (FUTURO)
+═══════════════════════════════════════════════════════════════════════════════
+
+□ Agregar image_picker para cambiar foto
+□ Permitir cambiar contraseña
+□ Agregar biografía/descripción
+□ Seleccionar avatar de galería predefinida
+□ Ver historial de ediciones
+□ Sincronizar con Google/Apple
+
+═══════════════════════════════════════════════════════════════════════════════
