@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "372369190316-ij3r1ejq1n7b0vnvffbuuumjopmp4ilt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.matetec",
+            "certificate_hash": "db37414491bcd866236c566f233363e856ade5fb"
+          }
+        },
+        {
           "client_id": "372369190316-j48914mmt1o0mcr9psjkpqe8had7nhds.apps.googleusercontent.com",
           "client_type": 3
         }

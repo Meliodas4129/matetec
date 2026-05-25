@@ -182,6 +182,7 @@ class _UserCard extends StatelessWidget {
     final racha       = data['racha']        ?? 0;
     final puntos      = data['puntos']       ?? 0;
     final pct         = intentos > 0 ? (aciertos / intentos * 100).toStringAsFixed(0) : '—';
+    final bloqueado   = data['bloqueado']    ?? false;
 
     final isAdmin = rol == 'admin';
     final initial = nombre.isNotEmpty ? nombre[0].toUpperCase() : '?';
@@ -189,12 +190,14 @@ class _UserCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bloqueado ? Colors.grey.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isAdmin
-              ? AppColors.primary.withValues(alpha: 0.4)
-              : Colors.grey.shade200,
+          color: bloqueado
+              ? Colors.grey.shade300
+              : isAdmin
+                  ? AppColors.primary.withValues(alpha: 0.4)
+                  : Colors.grey.shade200,
         ),
       ),
       child: Row(
@@ -290,23 +293,60 @@ class _UserCard extends StatelessWidget {
             ),
           ),
 
-          // Botón de opciones
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade400),
-            onSelected: (value) => _onAction(context, value),
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'admin',
-                child: Row(children: [
-                  Icon(Icons.admin_panel_settings_outlined,
-                      size: 16,
-                      color: isAdmin ? Colors.grey : AppColors.primary),
-                  const SizedBox(width: 8),
-                  Text(isAdmin ? 'Quitar admin' : 'Hacer admin',
+          // Badge bloqueado + botón de opciones
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (bloqueado)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text('Bloqueado',
                       style: TextStyle(
-                          fontSize: 13,
-                          color: isAdmin ? Colors.grey : AppColors.primary)),
-                ]),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600)),
+                ),
+              PopupMenuButton<String>(
+                icon:
+                    Icon(Icons.more_vert, size: 18, color: Colors.grey.shade400),
+                onSelected: (value) => _onAction(context, value),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'admin',
+                    child: Row(children: [
+                      Icon(Icons.admin_panel_settings_outlined,
+                          size: 16,
+                          color: isAdmin ? Colors.grey : AppColors.primary),
+                      const SizedBox(width: 8),
+                      Text(isAdmin ? 'Quitar admin' : 'Hacer admin',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color:
+                                  isAdmin ? Colors.grey : AppColors.primary)),
+                    ]),
+                  ),
+                  PopupMenuItem(
+                    value: 'bloquear',
+                    child: Row(children: [
+                      Icon(
+                          bloqueado
+                              ? Icons.lock_open_rounded
+                              : Icons.block_rounded,
+                          size: 16,
+                          color: bloqueado ? Colors.green : Colors.red),
+                      const SizedBox(width: 8),
+                      Text(bloqueado ? 'Desbloquear' : 'Bloquear',
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: bloqueado ? Colors.green : Colors.red)),
+                    ]),
+                  ),
+                ],
               ),
             ],
           ),
@@ -316,13 +356,12 @@ class _UserCard extends StatelessWidget {
   }
 
   Future<void> _onAction(BuildContext context, String action) async {
+    final ref = FirebaseFirestore.instance.collection('users').doc(docId);
+
     if (action == 'admin') {
       final current = data['rol'] ?? 'estudiante';
       final nuevoRol = current == 'admin' ? 'estudiante' : 'admin';
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(docId)
-          .update({'rol': nuevoRol});
+      await ref.update({'rol': nuevoRol});
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(nuevoRol == 'admin'
@@ -330,7 +369,59 @@ class _UserCard extends StatelessWidget {
               : '${data['nombre']} ya no es administrador'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(12),
+        ));
+      }
+    } else if (action == 'bloquear') {
+      final estaBloqueado = data['bloqueado'] ?? false;
+      final nuevoBloqueado = !estaBloqueado;
+
+      // Confirmar antes de bloquear
+      if (nuevoBloqueado && context.mounted) {
+        final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
+            title: const Text('Bloquear cuenta',
+                style:
+                    TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            content: Text(
+              '¿Bloquear la cuenta de ${data['nombre']}?\n'
+              'No podrá iniciar sesión hasta que lo desbloquees.',
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: Colors.grey)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Bloquear',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
+        );
+        if (confirmar != true) return;
+      }
+
+      await ref.update({'bloqueado': nuevoBloqueado});
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(nuevoBloqueado
+              ? '${data['nombre']} ha sido bloqueado'
+              : '${data['nombre']} ha sido desbloqueado'),
+          backgroundColor: nuevoBloqueado ? Colors.red : AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: const EdgeInsets.all(12),
         ));
       }

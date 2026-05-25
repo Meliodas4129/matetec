@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/local_storage_service.dart';
+import '../services/theme_service.dart';
 import '../widgets/sync_indicator.dart';
 import 'admin_screen.dart';
 import 'login_screen.dart';
@@ -12,7 +13,6 @@ import 'evaluacion_final_screen.dart';
 import 'configuracion_screen.dart';
 import 'practica_screen.dart' show NivelDificultad;
 import 'perfil_editable_screen.dart';
-import 'test_ia_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,6 +43,8 @@ class _HomeScreenState extends State<HomeScreen> {
         (data["temas"] as Map<String, dynamic>?) ?? const {};
     final List<String> temasDesbloqueados =
         ((data["temas_desbloqueados"] as List?)?.cast<String>()) ?? ['sumas'];
+    final Map<String, dynamic> retosDiarios =
+        (data["retos_diarios"] as Map<String, dynamic>?) ?? {};
 
     return [
       _Inicio(
@@ -55,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
         temas: temas,
       ),
       _Progreso(aciertos: aciertos, intentos: intentos, progreso: progreso, temas: temas),
-      const _Retos(),
+      _Retos(retos: retosDiarios, puntos: puntos),
       _Perfil(
         nombre: nombre,
         grado: grado,
@@ -73,7 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isGuest = LocalStorageService.isGuest;
+    // Si hay usuario de Firebase activo, siempre usar Firestore aunque
+    // isGuest quedara en true por una sesión anterior como invitado
+    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final isGuest = firebaseUser == null && LocalStorageService.isGuest;
 
     return PopScope(
       canPop: false,
@@ -338,65 +343,6 @@ class _Inicio extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-
-          const SizedBox(height: 32),
-
-          // ── Botón Probar IA ───────────────────────────────────────────
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const TestIAScreen()),
-            ),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6C63FF), Color(0xFF9B88F0)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6C63FF).withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.psychology, color: Colors.white, size: 28),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '🧠 Probar IA',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Descubre tu grado ideal',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
-                ],
-              ),
-            ),
           ),
 
           const SizedBox(height: 32),
@@ -1229,53 +1175,176 @@ class _ProgresoCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 🧩 RETOS
+// 🧩 RETOS DEL DÍA
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Definición estática de cada reto diario.
+class _DefReto {
+  final String id;
+  final String titulo;
+  final String descripcion;
+  final IconData icono;
+  final Color color;
+  final int puntos;
+  final int meta;          // valor objetivo
+  final String unidad;     // label de la barra de progreso
+
+  const _DefReto({
+    required this.id,
+    required this.titulo,
+    required this.descripcion,
+    required this.icono,
+    required this.color,
+    required this.puntos,
+    required this.meta,
+    required this.unidad,
+  });
+}
+
+const _retosDefinidos = [
+  _DefReto(
+    id: 'velocidad',
+    titulo: 'Velocidad mental',
+    descripcion: '15 aciertos en una sola sesión',
+    icono: Icons.bolt_rounded,
+    color: Color(0xFFE53935),
+    puntos: 50,
+    meta: 15,
+    unidad: 'aciertos/sesión',
+  ),
+  _DefReto(
+    id: 'punteria',
+    titulo: 'Puntería',
+    descripcion: '80% de precisión con al menos 10 intentos',
+    icono: Icons.my_location_rounded,
+    color: Color(0xFF1E88E5),
+    puntos: 40,
+    meta: 80,
+    unidad: '% precisión',
+  ),
+  _DefReto(
+    id: 'constancia',
+    titulo: 'Constancia del día',
+    descripcion: '25 ejercicios en total hoy',
+    icono: Icons.fitness_center_rounded,
+    color: Color(0xFF43A047),
+    puntos: 30,
+    meta: 25,
+    unidad: 'ejercicios',
+  ),
+];
+
 class _Retos extends StatelessWidget {
-  const _Retos();
+  final Map<String, dynamic> retos;
+  final int puntos;
+
+  const _Retos({required this.retos, required this.puntos});
+
+  // Verifica que los datos sean del día de hoy
+  bool get _esHoy {
+    final fecha = retos['fecha'] as String?;
+    if (fecha == null) return false;
+    final hoy = DateTime.now();
+    return fecha ==
+        '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
+  }
+
+  int _progreso(String id) {
+    if (!_esHoy) return 0;
+    switch (id) {
+      case 'velocidad':
+        return (retos['aciertos_mejor_sesion'] as int?) ?? 0;
+      case 'punteria':
+        final p = (retos['precision_mejor_sesion'] as num?) ?? 0;
+        return (p * 100).toInt();
+      case 'constancia':
+        return (retos['ejercicios_hoy'] as int?) ?? 0;
+      default:
+        return 0;
+    }
+  }
+
+  bool _completado(String id) {
+    if (!_esHoy) return false;
+    final completados = (retos['completados'] as List?)?.cast<String>() ?? [];
+    return completados.contains(id);
+  }
+
+  int get _puntosRetos {
+    if (!_esHoy) return 0;
+    return (retos['puntos_retos'] as int?) ?? 0;
+  }
+
+  int get _retosCompletados {
+    if (!_esHoy) return 0;
+    return ((retos['completados'] as List?)?.length ?? 0);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Retos del día',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Retos del día',
+                    style: TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1A1A)),
+                  ),
+                  Text(
+                    'Se reinician cada medianoche',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$_retosCompletados/${_retosDefinidos.length} completados',
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: primary),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _RetoCard(
-            titulo: 'Velocidad mental',
-            subtitulo: '20 sumas en 60 segundos',
-            icono: Icons.bolt,
-            iconColor: const Color(0xFFE53935),
-            fondoIcon: const Color(0xFFFFEBEE),
-            puntos: '+50 pts',
-            bloqueado: false,
-          ),
-          const SizedBox(height: 10),
-          _RetoCard(
-            titulo: 'Reto semanal',
-            subtitulo: '100 ejercicios sin fallo',
-            icono: Icons.star_outline,
-            iconColor: const Color(0xFF43A047),
-            fondoIcon: const Color(0xFFE8F5E9),
-            puntos: '+200 pts',
-            bloqueado: false,
-          ),
-          const SizedBox(height: 10),
-          _RetoCard(
-            titulo: 'División avanzada',
-            subtitulo: 'Completa divisiones primero',
-            icono: Icons.lock_outline,
-            iconColor: Colors.grey,
-            fondoIcon: Colors.grey.shade100,
-            puntos: 'Bloqueado',
-            bloqueado: true,
-          ),
+
           const SizedBox(height: 20),
+
+          // Tarjetas de retos
+          ..._retosDefinidos.map((def) {
+            final prog = _progreso(def.id);
+            final ok = _completado(def.id);
+            final fraccion = (prog / def.meta).clamp(0.0, 1.0);
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _RetoCard(
+                def: def,
+                progreso: prog,
+                fraccion: fraccion,
+                completado: ok,
+              ),
+            );
+          }),
+
+          const SizedBox(height: 8),
+
+          // Resumen de puntos de retos
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -1284,24 +1353,39 @@ class _Retos extends StatelessWidget {
               border: Border.all(color: Colors.grey.shade200),
             ),
             child: Row(
-              children: const [
-                Icon(Icons.star, color: Color(0xFFF59E0B), size: 24),
-                SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Puntos acumulados',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8E1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.star_rounded,
+                      color: Color(0xFFFFA000), size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Puntos por retos hoy',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text(
+                        '$puntos puntos totales acumulados',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade500),
                       ),
-                    ),
-                    Text(
-                      '340 pts esta semana',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+                Text(
+                  '+$_puntosRetos pts',
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFFFA000)),
                 ),
               ],
             ),
@@ -1313,84 +1397,113 @@ class _Retos extends StatelessWidget {
 }
 
 class _RetoCard extends StatelessWidget {
-  final String titulo;
-  final String subtitulo;
-  final IconData icono;
-  final Color iconColor;
-  final Color fondoIcon;
-  final String puntos;
-  final bool bloqueado;
+  final _DefReto def;
+  final int progreso;
+  final double fraccion;
+  final bool completado;
 
   const _RetoCard({
-    required this.titulo,
-    required this.subtitulo,
-    required this.icono,
-    required this.iconColor,
-    required this.fondoIcon,
-    required this.puntos,
-    required this.bloqueado,
+    required this.def,
+    required this.progreso,
+    required this.fraccion,
+    required this.completado,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: bloqueado ? 0.5 : 1.0,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: completado
+              ? def.color.withValues(alpha: 0.4)
+              : Colors.grey.shade200,
+          width: completado ? 1.5 : 1.0,
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: fondoIcon,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icono, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    titulo,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    subtitulo,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: bloqueado
-                    ? Colors.grey.shade100
-                    : const Color(0xFFFFEBEE),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                puntos,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: bloqueado ? Colors.grey : const Color(0xFFB71C1C),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: completado
+                      ? def.color.withValues(alpha: 0.12)
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  completado ? Icons.check_circle_rounded : def.icono,
+                  color: completado ? def.color : Colors.grey.shade500,
+                  size: 22,
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      def.titulo,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600,
+                          color: Color(0xFF1A1A1A)),
+                    ),
+                    Text(
+                      def.descripcion,
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: completado
+                      ? def.color.withValues(alpha: 0.1)
+                      : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  completado ? '✓ +${def.puntos}' : '+${def.puntos} pts',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: completado ? def.color : Colors.grey.shade600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Barra de progreso
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: fraccion,
+              minHeight: 6,
+              backgroundColor: Colors.grey.shade100,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  completado ? def.color : def.color.withValues(alpha: 0.5)),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            completado
+                ? '¡Completado!'
+                : '$progreso / ${def.meta} ${def.unidad}',
+            style: TextStyle(
+                fontSize: 10,
+                color: completado ? def.color : Colors.grey.shade500,
+                fontWeight:
+                    completado ? FontWeight.w600 : FontWeight.normal),
+          ),
+        ],
       ),
     );
   }
@@ -1565,6 +1678,80 @@ class _Perfil extends StatelessWidget {
                 ),
               );
             },
+          ),
+
+          const SizedBox(height: 8),
+
+          // ── Selector de color del tema ────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.palette_outlined,
+                        color: Colors.grey.shade600, size: 20),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Color del tema',
+                      style: TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ValueListenableBuilder<int>(
+                  valueListenable: ThemeService.colorIndexNotifier,
+                  builder: (context, idx, _) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: List.generate(
+                        ThemeService.presets.length,
+                        (i) {
+                          final seleccionado = i == idx;
+                          return GestureDetector(
+                            onTap: () => ThemeService.setColorIndex(i),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: ThemeService.presets[i],
+                                shape: BoxShape.circle,
+                                border: seleccionado
+                                    ? Border.all(
+                                        color: Colors.white, width: 2.5)
+                                    : null,
+                                boxShadow: seleccionado
+                                    ? [
+                                        BoxShadow(
+                                          color: ThemeService.presets[i]
+                                              .withValues(alpha: 0.5),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        )
+                                      ]
+                                    : null,
+                              ),
+                              child: seleccionado
+                                  ? const Icon(Icons.check,
+                                      color: Colors.white, size: 18)
+                                  : null,
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 8),

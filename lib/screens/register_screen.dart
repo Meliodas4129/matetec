@@ -45,6 +45,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final guestData = LocalStorageService.getDataForMigration();
       // Solo migramos si el invitado ya completó el diagnóstico
       if ((guestData['grado_num'] ?? 0) > 0) {
+        // Excluir campos de identidad para no sobreescribir el nombre/email real
+        guestData.remove('nombre');
+        guestData.remove('email');
+        guestData.remove('rol');
         await FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
@@ -101,7 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'temas_desbloqueados': ['sumas'],
         'racha': 0,
         'puntos': 0,
-        'rol': 'estudiante',
+        'rol': email.toLowerCase().endsWith('@matetec.com') ? 'admin' : 'estudiante',
         'createdAt': FieldValue.serverTimestamp(),
       };
 
@@ -132,18 +136,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       // ── Enviar verificación de correo ─────────────────────────────────
-      // Mantenemos la sesión activa para que VerifyEmailScreen pueda
-      // hacer user.reload() y detectar la verificación automáticamente.
       final email = cred.user!.email ?? _emailCtrl.text.trim();
-      await cred.user!.sendEmailVerification();
+      final esAdmin = email.toLowerCase().endsWith('@matetec.com');
 
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VerifyEmailScreen(email: email),
-        ),
-      );
+      if (esAdmin) {
+        // Los admins @matetec.com no necesitan verificar correo → home directo
+        await LocalStorageService.endGuestSession();
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        // Mantener sesión activa para que VerifyEmailScreen detecte verificación
+        await cred.user!.sendEmailVerification();
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerifyEmailScreen(email: email),
+          ),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       final msgs = {
         'email-already-in-use': 'Ese correo ya está registrado',
@@ -217,10 +231,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         esNuevo = true;
       }
 
+      // Limpiar sesión de invitado si había una activa
+      await LocalStorageService.endGuestSession();
+
       if (!mounted) return;
       final data = (await docRef.get()).data();
       final grado = (data?['grado'] ?? 'Pendiente') as String;
-      if (esNuevo || grado == 'Pendiente' || grado.isEmpty) {
+      final rol   = (data?['rol']   ?? 'estudiante') as String;
+      // Admins @matetec.com → home directo, sin diagnóstico
+      if (rol != 'admin' && (esNuevo || grado == 'Pendiente' || grado.isEmpty)) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const DiagnosticoScreen()),

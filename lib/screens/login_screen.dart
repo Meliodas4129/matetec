@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../theme/app_theme.dart';
+import '../services/local_storage_service.dart';
 import 'home_inicio.dart';
 import 'register_screen.dart';
 import 'diagnostico_screen.dart';
@@ -38,8 +39,39 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passCtrl.text.trim(),
       );
 
+      // ── Verificar si la cuenta está bloqueada / promover admin ─────────
+      if (cred.user != null) {
+        final userEmail = (cred.user!.email ?? '').toLowerCase();
+        final ref = FirebaseFirestore.instance
+            .collection('users')
+            .doc(cred.user!.uid);
+        final doc = await ref.get();
+        final data = doc.data() ?? {};
+
+        // Cuenta bloqueada
+        if ((data['bloqueado'] ?? false) as bool) {
+          await FirebaseAuth.instance.signOut();
+          if (!mounted) return;
+          _showSnack(
+            'Tu cuenta ha sido suspendida. Contacta al administrador.',
+            duration: const Duration(seconds: 6),
+          );
+          setState(() => _loading = false);
+          return;
+        }
+
+        // Promover automáticamente a admin si el dominio coincide
+        if (userEmail.endsWith('@matetec.com') &&
+            (data['rol'] ?? 'estudiante') != 'admin') {
+          await ref.update({'rol': 'admin'});
+        }
+      }
+
       // ── Verificar que el correo esté confirmado ───────────────────────
-      if (cred.user != null && !cred.user!.emailVerified) {
+      // Excepción: admins @matetec.com no necesitan verificar correo
+      final loginEmail = (cred.user?.email ?? _emailCtrl.text.trim()).toLowerCase();
+      final esAdminDomain = loginEmail.endsWith('@matetec.com');
+      if (cred.user != null && !cred.user!.emailVerified && !esAdminDomain) {
         final email = cred.user!.email ?? _emailCtrl.text.trim();
         if (!mounted) return;
         // Mantenemos sesión activa para que VerifyEmailScreen haga polling
@@ -51,6 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         return;
       }
+
+      // Limpiar sesión de invitado si había una activa
+      await LocalStorageService.endGuestSession();
 
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -161,15 +196,39 @@ class _LoginScreenState extends State<LoginScreen> {
           'temas_desbloqueados': ['sumas'],
           'racha': 0,
           'puntos': 0,
-          'rol': 'estudiante',
+          'rol': (user.email ?? '').toLowerCase().endsWith('@matetec.com')
+              ? 'admin'
+              : 'estudiante',
           'createdAt': FieldValue.serverTimestamp(),
         });
+      } else {
+        // Usuario existente: promover a admin si su correo es @matetec.com
+        final existingData = doc.data() as Map<String, dynamic>? ?? {};
+        final userEmail = (user.email ?? '').toLowerCase();
+        if (userEmail.endsWith('@matetec.com') &&
+            (existingData['rol'] ?? 'estudiante') != 'admin') {
+          await docRef.update({'rol': 'admin'});
+        }
+        // Verificar si está bloqueado
+        if ((existingData['bloqueado'] ?? false) as bool) {
+          await FirebaseAuth.instance.signOut();
+          _showSnack(
+            'Tu cuenta ha sido suspendida. Contacta al administrador.',
+            duration: const Duration(seconds: 6),
+          );
+          return;
+        }
       }
+
+      // Limpiar sesión de invitado si había una activa
+      await LocalStorageService.endGuestSession();
 
       if (!mounted) return;
       final data = (await docRef.get()).data();
       final grado = (data?['grado'] ?? 'Pendiente') as String;
-      if (grado == 'Pendiente' || grado.isEmpty) {
+      final rol   = (data?['rol']   ?? 'estudiante') as String;
+      // Admins no necesitan diagnóstico → van directo al home
+      if (rol != 'admin' && (grado == 'Pendiente' || grado.isEmpty)) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const DiagnosticoScreen()),

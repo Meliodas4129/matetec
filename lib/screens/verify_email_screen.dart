@@ -108,13 +108,16 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             .collection('users')
             .doc(fresh.uid)
             .get();
-        final grado = (doc.data()?['grado'] ?? 'Pendiente') as String;
+        final docData = doc.data() ?? {};
+        final grado = (docData['grado'] ?? 'Pendiente') as String;
+        final rol   = (docData['rol']   ?? 'estudiante') as String;
 
         if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(
-            builder: (_) => grado == 'Pendiente' || grado.isEmpty
+            // Admins no necesitan diagnóstico → home directo
+            builder: (_) => (rol != 'admin' && (grado == 'Pendiente' || grado.isEmpty))
                 ? const DiagnosticoScreen()
                 : const HomeScreen(),
           ),

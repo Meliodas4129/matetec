@@ -196,6 +196,113 @@ class _PracticaScreenState extends State<PracticaScreen> {
   void _terminarJuego() {
     _timer?.cancel();
     setState(() => _fase = _Fase.resultados);
+    if (!LocalStorageService.isGuest && _user != null) {
+      _actualizarRetos();
+    }
+  }
+
+  // ─── Actualizar retos del día ─────────────────────────────────────────────
+  Future<void> _actualizarRetos() async {
+    if (_user == null) return;
+    try {
+      final ref = FirebaseFirestore.instance.collection('users').doc(_user!.uid);
+      final doc = await ref.get();
+      final data = doc.data();
+      if (data == null) return;
+
+      final ahora = DateTime.now();
+      final fechaHoy =
+          '${ahora.year}-${ahora.month.toString().padLeft(2, '0')}-${ahora.day.toString().padLeft(2, '0')}';
+
+      // Datos actuales de retos (pueden ser de otro día → resetear)
+      final retosActual =
+          (data['retos_diarios'] as Map<String, dynamic>?) ?? {};
+      final esMismoDia = (retosActual['fecha'] as String?) == fechaHoy;
+
+      final aciertosAntMejor = esMismoDia
+          ? (retosActual['aciertos_mejor_sesion'] as int?) ?? 0
+          : 0;
+      final precisionAntMejor = esMismoDia
+          ? (retosActual['precision_mejor_sesion'] as num?)?.toDouble() ?? 0.0
+          : 0.0;
+      final ejerciciosHoy = esMismoDia
+          ? (retosActual['ejercicios_hoy'] as int?) ?? 0
+          : 0;
+      final completadosAnt = esMismoDia
+          ? ((retosActual['completados'] as List?)?.cast<String>() ?? [])
+          : <String>[];
+      final puntosRetosAnt = esMismoDia
+          ? (retosActual['puntos_retos'] as int?) ?? 0
+          : 0;
+
+      // Calcular valores de esta sesión
+      final total = _aciertos + _errores;
+      final precision = total > 0 ? _aciertos / total : 0.0;
+      final ejerciciosNuevos = ejerciciosHoy + total;
+
+      // Nuevos mejores
+      final nuevoMejorAciertos = _aciertos > aciertosAntMejor
+          ? _aciertos
+          : aciertosAntMejor;
+      final nuevoMejorPrecision = precision > precisionAntMejor
+          ? precision
+          : precisionAntMejor;
+
+      // Verificar qué retos se completaron
+      final completados = List<String>.from(completadosAnt);
+      int puntosNuevos = puntosRetosAnt;
+
+      void _check(String id, bool condicion, int pts) {
+        if (condicion && !completados.contains(id)) {
+          completados.add(id);
+          puntosNuevos += pts;
+        }
+      }
+
+      _check('velocidad', nuevoMejorAciertos >= 15, 50);
+      _check('punteria', nuevoMejorPrecision >= 0.8 && total >= 10, 40);
+      _check('constancia', ejerciciosNuevos >= 25, 30);
+
+      // Guardar en Firestore
+      await SyncService.wrap(() => ref.update({
+        'retos_diarios': {
+          'fecha': fechaHoy,
+          'aciertos_mejor_sesion': nuevoMejorAciertos,
+          'precision_mejor_sesion': nuevoMejorPrecision,
+          'ejercicios_hoy': ejerciciosNuevos,
+          'completados': completados,
+          'puntos_retos': puntosNuevos,
+        },
+        if (puntosNuevos > puntosRetosAnt)
+          'puntos': FieldValue.increment(puntosNuevos - puntosRetosAnt),
+      }));
+
+      // Mostrar notificación si se desbloqueó un reto nuevo
+      final nuevos = completados
+          .where((id) => !completadosAnt.contains(id))
+          .toList();
+      if (nuevos.isNotEmpty && mounted) {
+        final nombres = {
+          'velocidad': '🏃 Velocidad mental',
+          'punteria': '🎯 Puntería',
+          'constancia': '📚 Constancia del día',
+        };
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            '¡Reto completado: ${nombres[nuevos.first] ?? nuevos.first}! +pts',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: Colors.amber[800],
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(12),
+        ));
+      }
+    } catch (e) {
+      debugPrint('Error actualizando retos: $e');
+    }
   }
 
   // ─── Racha de días consecutivos ───────────────────────────────────────────

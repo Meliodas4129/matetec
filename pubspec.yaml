@@ -47,17 +47,29 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.13
+  flutter_launcher_icons: ^0.14.3
+  flutter_native_splash: ^2.4.3
 
-  # Dependencias para pruebas unitarias
-  mockito: ^5.4.4          # Mocks para clases externas (ej. http.Client)
-  build_runner: ^2.4.13    # Generador de código para mockito
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/logo.png"
+  adaptive_icon_background: "#E53935"
+  adaptive_icon_foreground: "assets/logo.png"
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#E53935"
+  image: assets/logo.png
+  color_dark: "#E53935"
+  image_dark: assets/logo.png
+  android_12:
+    image: assets/logo.png
+    color: "#E53935"
+  fullscreen: false
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -72,6 +84,7 @@ flutter:
 
   assets:
     - assets/logo.png
+    - assets/splash.png
     - assets/fondo.jpg
 
   # To add assets to your application, add an assets section, like this:

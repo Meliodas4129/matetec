@@ -176,4 +176,100 @@ class AppTheme {
 
   /// Alias para compatibilidad con código existente que aún use `dark`.
   static ThemeData dark = light;
+
+  /// Genera un ThemeData usando el color primario dinámico del usuario.
+  static ThemeData forColor(Color primary) {
+    final dark = Color.fromARGB(
+      primary.alpha,
+      (primary.red * 0.75).round(),
+      (primary.green * 0.75).round(),
+      (primary.blue * 0.75).round(),
+    );
+    final soft = primary.withValues(alpha: 0.08);
+
+    return light.copyWith(
+      colorScheme: ColorScheme.light(
+        primary: primary,
+        onPrimary: Colors.white,
+        secondary: primary.withValues(alpha: 0.8),
+        onSecondary: Colors.white,
+        surface: AppColors.surface,
+        onSurface: AppColors.textPrimary,
+        error: AppColors.danger,
+        onError: Colors.white,
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: primary),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surface,
+        labelStyle: const TextStyle(color: AppColors.textSecondary),
+        hintStyle: const TextStyle(color: AppColors.textMuted),
+        prefixIconColor: AppColors.textSecondary,
+        suffixIconColor: AppColors.textSecondary,
+        border: OutlineInputBorder(
+          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: primary, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: primary,
+        unselectedItemColor: AppColors.textMuted,
+        type: BottomNavigationBarType.fixed,
+        elevation: 0,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: primary),
+      // Expose the two variants via extensions for widgets that need them
+      extensions: [
+        _PrimaryVariants(dark: dark, soft: soft),
+      ],
+    );
+  }
+}
+
+/// ThemeExtension que expone `primaryDark` y `primarySoft` calculados.
+class _PrimaryVariants extends ThemeExtension<_PrimaryVariants> {
+  final Color dark;
+  final Color soft;
+  const _PrimaryVariants({required this.dark, required this.soft});
+
+  @override
+  ThemeExtension<_PrimaryVariants> copyWith({Color? dark, Color? soft}) =>
+      _PrimaryVariants(dark: dark ?? this.dark, soft: soft ?? this.soft);
+
+  @override
+  ThemeExtension<_PrimaryVariants> lerp(
+          ThemeExtension<_PrimaryVariants>? other, double t) =>
+      this;
 }

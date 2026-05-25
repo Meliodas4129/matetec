@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'welcome_screen.dart';
+import '../services/theme_service.dart';
 
 class ConfiguracionScreen extends StatefulWidget {
   const ConfiguracionScreen({super.key});
@@ -78,7 +79,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('⚙️ Configuración'),
-        backgroundColor: const Color(0xFFE53935),
+        backgroundColor: ThemeService.primaryColor,
         elevation: 0,
       ),
       body: ListView(
@@ -100,7 +101,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
               children: [
                 // Notificaciones
                 ListTile(
-                  leading: const Icon(Icons.notifications, color: Color(0xFFE53935)),
+                  leading: Icon(Icons.notifications, color: ThemeService.primaryColor),
                   title: const Text('Notificaciones'),
                   subtitle: const Text('Recibe alertas y recordatorios'),
                   trailing: Switch(
@@ -109,13 +110,13 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                       setState(() => _notificacionesActivas = value);
                       _guardarPreferencias();
                     },
-                    activeColor: const Color(0xFFE53935),
+                    activeColor: ThemeService.primaryColor,
                   ),
                 ),
                 Divider(height: 1, indent: 56),
                 // Sonido
                 ListTile(
-                  leading: const Icon(Icons.volume_up, color: Color(0xFFE53935)),
+                  leading: Icon(Icons.volume_up, color: ThemeService.primaryColor),
                   title: const Text('Sonido en Logros'),
                   subtitle: const Text('Reproduce sonido al alcanzar objetivos'),
                   trailing: Switch(
@@ -124,7 +125,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                       setState(() => _sonidoActivo = value);
                       _guardarPreferencias();
                     },
-                    activeColor: const Color(0xFFE53935),
+                    activeColor: ThemeService.primaryColor,
                   ),
                 ),
               ],
@@ -150,7 +151,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
               children: [
                 // Tema oscuro
                 ListTile(
-                  leading: const Icon(Icons.dark_mode, color: Color(0xFFE53935)),
+                  leading: Icon(Icons.dark_mode, color: ThemeService.primaryColor),
                   title: const Text('Tema Oscuro'),
                   subtitle: const Text('Próximamente disponible'),
                   trailing: Switch(
@@ -165,7 +166,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                         ),
                       );
                     },
-                    activeColor: const Color(0xFFE53935),
+                    activeColor: ThemeService.primaryColor,
                   ),
                 ),
               ],
@@ -191,7 +192,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
               children: [
                 // Privacidad
                 ListTile(
-                  leading: const Icon(Icons.privacy_tip, color: Color(0xFFE53935)),
+                  leading: Icon(Icons.privacy_tip, color: ThemeService.primaryColor),
                   title: const Text('Política de Privacidad'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
@@ -219,7 +220,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                 Divider(height: 1, indent: 56),
                 // Términos
                 ListTile(
-                  leading: const Icon(Icons.description, color: Color(0xFFE53935)),
+                  leading: Icon(Icons.description, color: ThemeService.primaryColor),
                   title: const Text('Términos de Servicio'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
@@ -247,7 +248,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                 Divider(height: 1, indent: 56),
                 // Acerca de
                 ListTile(
-                  leading: const Icon(Icons.info, color: Color(0xFFE53935)),
+                  leading: Icon(Icons.info, color: ThemeService.primaryColor),
                   title: const Text('Acerca de MateTec'),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {

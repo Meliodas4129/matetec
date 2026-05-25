@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'services/local_storage_service.dart';
 import 'services/sync_service.dart';
+import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/login_screen.dart';
@@ -21,7 +22,7 @@ void main() async {
 
   // ── Persistencia offline para usuarios con cuenta ─────────────────────────
   FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,   // caché local cuando no hay internet
+    persistenceEnabled: true, // caché local cuando no hay internet
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
 
@@ -31,12 +32,17 @@ void main() async {
   // ── Inicializar servicio de sincronización / conectividad ─────────────────
   await SyncService.init();
 
+  // ── Inicializar preferencia de color de tema ──────────────────────────────
+  await ThemeService.init();
+
   // Manejar resultado de signInWithRedirect (fallback web cuando popup es bloqueado)
   try {
     final result = await FirebaseAuth.instance.getRedirectResult();
     if (result.user != null) {
       final user = result.user!;
-      final docRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      final docRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid);
       final doc = await docRef.get();
       if (!doc.exists) {
         await docRef.set({
@@ -50,26 +56,36 @@ void main() async {
           'tiempo_total': 0,
           'temas': {
             'sumas': {
-              'aciertos': 0, 'intentos': 0,
-              'eval_desde_intentos': 10, 'eval_aprobada': false,
+              'aciertos': 0,
+              'intentos': 0,
+              'eval_desde_intentos': 10,
+              'eval_aprobada': false,
             },
             'restas': {
-              'aciertos': 0, 'intentos': 0,
-              'eval_desde_intentos': 10, 'eval_aprobada': false,
+              'aciertos': 0,
+              'intentos': 0,
+              'eval_desde_intentos': 10,
+              'eval_aprobada': false,
             },
             'multiplicacion': {
-              'aciertos': 0, 'intentos': 0,
-              'eval_desde_intentos': 10, 'eval_aprobada': false,
+              'aciertos': 0,
+              'intentos': 0,
+              'eval_desde_intentos': 10,
+              'eval_aprobada': false,
             },
             'division': {
-              'aciertos': 0, 'intentos': 0,
-              'eval_desde_intentos': 10, 'eval_aprobada': false,
+              'aciertos': 0,
+              'intentos': 0,
+              'eval_desde_intentos': 10,
+              'eval_aprobada': false,
             },
           },
           'temas_desbloqueados': ['sumas'],
           'racha': 0,
           'puntos': 0,
-          'rol': 'estudiante',
+          'rol': (user.email ?? '').toLowerCase().endsWith('@matetec.com')
+              ? 'admin'
+              : 'estudiante',
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
@@ -86,19 +102,24 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MateTec',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      themeMode: ThemeMode.light,
-      routes: {
-        '/welcome': (_) => const WelcomeScreen(),
-        '/login': (_) => const LoginScreen(),
-        '/register': (_) => const RegisterScreen(),
-        '/home': (_) => const HomeScreen(),
-        '/diagnostico': (_) => const DiagnosticoScreen(),
+    return ValueListenableBuilder<int>(
+      valueListenable: ThemeService.colorIndexNotifier,
+      builder: (context, _, __) {
+        return MaterialApp(
+          title: 'MateTec',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.forColor(ThemeService.primaryColor),
+          themeMode: ThemeMode.light,
+          routes: {
+            '/welcome': (_) => const WelcomeScreen(),
+            '/login': (_) => const LoginScreen(),
+            '/register': (_) => const RegisterScreen(),
+            '/home': (_) => const HomeScreen(),
+            '/diagnostico': (_) => const DiagnosticoScreen(),
+          },
+          home: const AuthWrapper(),
+        );
       },
-      home: const AuthWrapper(),
     );
   }
 }
@@ -151,12 +172,16 @@ class AuthWrapper extends StatelessWidget {
           return const WelcomeScreen();
         }
 
-        // ✅ Correo no verificado → pedir verificación (sesión activa para polling)
-        if (!user.emailVerified) {
+        // ✅ Correo no verificado → pedir verificación
+        // Excepción: admins @matetec.com no necesitan verificar
+        final esAdminDomain = (user.email ?? '').toLowerCase().endsWith(
+          '@matetec.com',
+        );
+        if (!user.emailVerified && !esAdminDomain) {
           return VerifyEmailScreen(email: user.email ?? '');
         }
 
-        // ✅ Con sesión → revisar si ya hizo el diagnóstico inicial
+        // ✅ Con sesión → revisar diagnóstico y estado de cuenta
         return FutureBuilder<DocumentSnapshot>(
           future: FirebaseFirestore.instance
               .collection('users')
@@ -173,10 +198,19 @@ class AuthWrapper extends StatelessWidget {
             }
 
             final data = docSnap.data!.data() as Map<String, dynamic>?;
-            final grado = (data?['grado'] ?? 'Pendiente') as String;
 
+            // ✅ Cuenta bloqueada → mostrar pantalla de suspensión
+            if ((data?['bloqueado'] ?? false) as bool) {
+              FirebaseAuth.instance.signOut();
+              return const _CuentaBloqueadaScreen();
+            }
+
+            final grado = (data?['grado'] ?? 'Pendiente') as String;
+            final rol = (data?['rol'] ?? 'estudiante') as String;
+
+            // Los admins no necesitan diagnóstico → van directo al home
             // Si todavía no hizo el diagnóstico → diagnóstico
-            if (grado == 'Pendiente' || grado.isEmpty) {
+            if (rol != 'admin' && (grado == 'Pendiente' || grado.isEmpty)) {
               return const DiagnosticoScreen();
             }
 
@@ -185,6 +219,80 @@ class AuthWrapper extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+// ── Pantalla de cuenta suspendida ─────────────────────────────────────────────
+class _CuentaBloqueadaScreen extends StatelessWidget {
+  const _CuentaBloqueadaScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.block_rounded,
+                  size: 52,
+                  color: Colors.red,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Cuenta suspendida',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Tu cuenta ha sido suspendida temporalmente por el administrador.\n\n'
+                'Si crees que es un error, contacta a tu profesor o al administrador del sistema.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 36),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await FirebaseAuth.instance.signOut();
+                  },
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Cerrar sesión'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade700,
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
