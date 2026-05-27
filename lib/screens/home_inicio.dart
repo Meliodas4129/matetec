@@ -26,18 +26,25 @@ class _HomeScreenState extends State<HomeScreen> {
   static const rojo = Color(0xFFE53935);
 
   // Construye las 4 pantallas a partir de un mapa de datos (Firestore o local)
-  List<Widget> _buildScreens(Map<String, dynamic> data, {bool isGuest = false}) {
-    final String nombre   = data["nombre"]       ?? (data["email"]?.toString().isNotEmpty == true ? data["email"].toString().split('@')[0] : 'Usuario');
-    final String grado    = data["grado"]        ?? "";
-    final String email    = data["email"]        ?? "";
-    final String rol      = data["rol"]          ?? "estudiante";
-    final String ciudad   = data["ciudad"]       ?? "";
-    final String fotoUrl  = data["fotoUrl"]      ?? "";
-    final int    gradoNum = data["grado_num"]    ?? 1;
-    final int    aciertos = data["aciertos"]     ?? 0;
-    final int    intentos = data["intentos"]     ?? 1;
-    final int    racha    = data["racha"]        ?? 0;
-    final int    puntos   = data["puntos"]       ?? 0;
+  List<Widget> _buildScreens(
+    Map<String, dynamic> data, {
+    bool isGuest = false,
+  }) {
+    final String nombre =
+        data["nombre"] ??
+        (data["email"]?.toString().isNotEmpty == true
+            ? data["email"].toString().split('@')[0]
+            : 'Usuario');
+    final String grado = data["grado"] ?? "";
+    final String email = data["email"] ?? "";
+    final String rol = data["rol"] ?? "estudiante";
+    final String ciudad = data["ciudad"] ?? "";
+    final String fotoUrl = data["fotoUrl"] ?? "";
+    final int gradoNum = data["grado_num"] ?? 1;
+    final int aciertos = data["aciertos"] ?? 0;
+    final int intentos = data["intentos"] ?? 1;
+    final int racha = data["racha"] ?? 0;
+    final int puntos = data["puntos"] ?? 0;
     final double progreso = intentos > 0 ? aciertos / intentos : 0.0;
     final Map<String, dynamic> temas =
         (data["temas"] as Map<String, dynamic>?) ?? const {};
@@ -56,7 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
         temasDesbloqueados: temasDesbloqueados,
         temas: temas,
       ),
-      _Progreso(aciertos: aciertos, intentos: intentos, progreso: progreso, temas: temas),
+      _Progreso(
+        aciertos: aciertos,
+        intentos: intentos,
+        progreso: progreso,
+        temas: temas,
+      ),
       _Retos(retos: retosDiarios, puntos: puntos),
       _Perfil(
         nombre: nombre,
@@ -92,7 +104,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   valueListenable: LocalStorageService.guestDataNotifier,
                   builder: (context, data, _) {
                     final screens = _buildScreens(data, isGuest: true);
-                    return IndexedStack(index: _currentIndex, children: screens);
+                    return IndexedStack(
+                      index: _currentIndex,
+                      children: screens,
+                    );
                   },
                 )
               // ── Usuario con cuenta: datos desde Firestore ───────────────
@@ -107,7 +122,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
                     final data = snapshot.data!.data() as Map<String, dynamic>;
                     final screens = _buildScreens(data);
-                    return IndexedStack(index: _currentIndex, children: screens);
+                    return IndexedStack(
+                      index: _currentIndex,
+                      children: screens,
+                    );
                   },
                 ),
         ),
@@ -522,82 +540,36 @@ class _TemaCard extends StatelessWidget {
     required this.temaData,
   });
 
-  // Datos de progreso hacia la evaluación
-  int get _intentos => (temaData['intentos'] ?? 0) as int;
-  int get _evalDesde => (temaData['eval_desde_intentos'] ?? 10) as int;
+  // Datos de progreso hacia la evaluación (basado en PARTIDAS, no preguntas)
+  int get _partidas => (temaData['partidas'] ?? 0) as int;
+  int get _evalDesde => (temaData['eval_desde_intentos'] ?? 5) as int;
   bool get _evalAprobada => (temaData['eval_aprobada'] ?? false) as bool;
-  bool get _puedeEvaluar => desbloqueado && !_evalAprobada && _intentos >= _evalDesde;
-  int get _practicasParaEval => (_evalDesde - _intentos).clamp(0, _evalDesde);
+  bool get _puedeEvaluar =>
+      desbloqueado && !_evalAprobada && _partidas >= _evalDesde;
+  int get _practicasParaEval => (_evalDesde - _partidas).clamp(0, _evalDesde);
 
   void _abrirPractica(BuildContext context) {
-    // Mostrar diálogo para seleccionar dificultad
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Selecciona Dificultad'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Elige el nivel que deseas practicar:',
-              style: Theme.of(context).textTheme.bodyMedium,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _DificultadSheet(
+        nombre: nombre,
+        color: color,
+        icono: icono,
+        onSelect: (nivel) {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PracticaScreen(
+                tema: temaPractica,
+                gradoNum: gradoNum,
+                nivelDificultad: nivel,
+              ),
             ),
-            const SizedBox(height: 16),
-          ],
-        ),
-        actions: [
-          // Botón Fácil
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PracticaScreen(
-                    tema: temaPractica,
-                    gradoNum: gradoNum,
-                    nivelDificultad: NivelDificultad.facil,
-                  ),
-                ),
-              );
-            },
-            child: const Text('🟢 Fácil\n(1-10)'),
-          ),
-          // Botón Normal
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PracticaScreen(
-                    tema: temaPractica,
-                    gradoNum: gradoNum,
-                    nivelDificultad: NivelDificultad.normal,
-                  ),
-                ),
-              );
-            },
-            child: const Text('🟡 Normal\n(1-100)'),
-          ),
-          // Botón Difícil
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PracticaScreen(
-                    tema: temaPractica,
-                    gradoNum: gradoNum,
-                    nivelDificultad: NivelDificultad.dificil,
-                  ),
-                ),
-              );
-            },
-            child: const Text('🔴 Difícil\n(1-1000)'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -610,7 +582,7 @@ class _TemaCard extends StatelessWidget {
           tema: clave,
           gradoNum: gradoNum,
           siguienteTema: siguienteTema,
-          intentosActuales: _intentos,
+          intentosActuales: _partidas,
         ),
       ),
     );
@@ -626,9 +598,11 @@ class _TemaCard extends StatelessWidget {
     final prereq = prereqs[clave] ?? '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(prereq.isNotEmpty
-            ? 'Aprueba la evaluación de $prereq para desbloquear $nombre'
-            : 'Completa los temas anteriores primero'),
+        content: Text(
+          prereq.isNotEmpty
+              ? 'Aprueba la evaluación de $prereq para desbloquear $nombre'
+              : 'Completa los temas anteriores primero',
+        ),
         backgroundColor: Colors.grey.shade800,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -681,24 +655,34 @@ class _TemaCard extends StatelessWidget {
                   if (_evalAprobada)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.check_circle_rounded,
-                          color: Colors.green, size: 15),
+                      child: const Icon(
+                        Icons.check_circle_rounded,
+                        color: Colors.green,
+                        size: 15,
+                      ),
                     )
                   else if (_puedeEvaluar)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.amber.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.emoji_events_rounded,
-                          color: Colors.amber, size: 15),
+                      child: const Icon(
+                        Icons.emoji_events_rounded,
+                        color: Colors.amber,
+                        size: 15,
+                      ),
                     ),
                 ],
               ),
@@ -728,17 +712,19 @@ class _TemaCard extends StatelessWidget {
                 Text(
                   '✓ Evaluación aprobada',
                   style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.green.shade600,
-                      fontWeight: FontWeight.w500),
+                    fontSize: 10,
+                    color: Colors.green.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
                 )
               else if (_puedeEvaluar)
                 Text(
                   '¡Listo para evaluar!',
                   style: TextStyle(
-                      fontSize: 10,
-                      color: color,
-                      fontWeight: FontWeight.w600),
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w600,
+                  ),
                 )
               else
                 Text(
@@ -769,7 +755,9 @@ class _TemaCard extends StatelessWidget {
                       child: const Text(
                         '¡Evaluarme!',
                         style: TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.w700),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
@@ -779,7 +767,7 @@ class _TemaCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: _evalDesde > 0
-                          ? (_intentos / _evalDesde).clamp(0.0, 1.0)
+                          ? (_partidas / _evalDesde).clamp(0.0, 1.0)
                           : 0.0,
                       minHeight: 5,
                       backgroundColor: Colors.grey.shade100,
@@ -788,9 +776,8 @@ class _TemaCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$_practicasParaEval más para evaluación',
-                    style: TextStyle(
-                        fontSize: 9, color: Colors.grey.shade500),
+                    '$_practicasParaEval partida${_practicasParaEval != 1 ? 's' : ''} más para evaluación',
+                    style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
                   ),
                 ],
               ],
@@ -1186,8 +1173,8 @@ class _DefReto {
   final IconData icono;
   final Color color;
   final int puntos;
-  final int meta;          // valor objetivo
-  final String unidad;     // label de la barra de progreso
+  final int meta; // valor objetivo
+  final String unidad; // label de la barra de progreso
 
   const _DefReto({
     required this.id,
@@ -1299,8 +1286,10 @@ class _Retos extends StatelessWidget {
                   const Text(
                     'Retos del día',
                     style: TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A)),
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A1A),
+                    ),
                   ),
                   Text(
                     'Se reinician cada medianoche',
@@ -1309,7 +1298,10 @@ class _Retos extends StatelessWidget {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
@@ -1317,7 +1309,10 @@ class _Retos extends StatelessWidget {
                 child: Text(
                   '$_retosCompletados/${_retosDefinidos.length} completados',
                   style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600, color: primary),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: primary,
+                  ),
                 ),
               ),
             ],
@@ -1361,21 +1356,30 @@ class _Retos extends StatelessWidget {
                     color: const Color(0xFFFFF8E1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.star_rounded,
-                      color: Color(0xFFFFA000), size: 24),
+                  child: const Icon(
+                    Icons.star_rounded,
+                    color: Color(0xFFFFA000),
+                    size: 24,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Puntos por retos hoy',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w500)),
+                      const Text(
+                        'Puntos por retos hoy',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       Text(
                         '$puntos puntos totales acumulados',
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500),
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
                       ),
                     ],
                   ),
@@ -1383,9 +1387,10 @@ class _Retos extends StatelessWidget {
                 Text(
                   '+$_puntosRetos pts',
                   style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFFFA000)),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFFFA000),
+                  ),
                 ),
               ],
             ),
@@ -1451,19 +1456,26 @@ class _RetoCard extends StatelessWidget {
                     Text(
                       def.titulo,
                       style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A1A1A)),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1A1A1A),
+                      ),
                     ),
                     Text(
                       def.descripcion,
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade500),
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: completado
                       ? def.color.withValues(alpha: 0.1)
@@ -1473,9 +1485,10 @@ class _RetoCard extends StatelessWidget {
                 child: Text(
                   completado ? '✓ +${def.puntos}' : '+${def.puntos} pts',
                   style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: completado ? def.color : Colors.grey.shade600),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: completado ? def.color : Colors.grey.shade600,
+                  ),
                 ),
               ),
             ],
@@ -1489,7 +1502,8 @@ class _RetoCard extends StatelessWidget {
               minHeight: 6,
               backgroundColor: Colors.grey.shade100,
               valueColor: AlwaysStoppedAnimation<Color>(
-                  completado ? def.color : def.color.withValues(alpha: 0.5)),
+                completado ? def.color : def.color.withValues(alpha: 0.5),
+              ),
             ),
           ),
           const SizedBox(height: 6),
@@ -1498,10 +1512,10 @@ class _RetoCard extends StatelessWidget {
                 ? '¡Completado!'
                 : '$progreso / ${def.meta} ${def.unidad}',
             style: TextStyle(
-                fontSize: 10,
-                color: completado ? def.color : Colors.grey.shade500,
-                fontWeight:
-                    completado ? FontWeight.w600 : FontWeight.normal),
+              fontSize: 10,
+              color: completado ? def.color : Colors.grey.shade500,
+              fontWeight: completado ? FontWeight.w600 : FontWeight.normal,
+            ),
           ),
         ],
       ),
@@ -1695,13 +1709,18 @@ class _Perfil extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.palette_outlined,
-                        color: Colors.grey.shade600, size: 20),
+                    Icon(
+                      Icons.palette_outlined,
+                      color: Colors.grey.shade600,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     const Text(
                       'Color del tema',
                       style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w500),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -1711,42 +1730,41 @@ class _Perfil extends StatelessWidget {
                   builder: (context, idx, _) {
                     return Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: List.generate(
-                        ThemeService.presets.length,
-                        (i) {
-                          final seleccionado = i == idx;
-                          return GestureDetector(
-                            onTap: () => ThemeService.setColorIndex(i),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: ThemeService.presets[i],
-                                shape: BoxShape.circle,
-                                border: seleccionado
-                                    ? Border.all(
-                                        color: Colors.white, width: 2.5)
-                                    : null,
-                                boxShadow: seleccionado
-                                    ? [
-                                        BoxShadow(
-                                          color: ThemeService.presets[i]
-                                              .withValues(alpha: 0.5),
-                                          blurRadius: 8,
-                                          spreadRadius: 1,
-                                        )
-                                      ]
-                                    : null,
-                              ),
-                              child: seleccionado
-                                  ? const Icon(Icons.check,
-                                      color: Colors.white, size: 18)
+                      children: List.generate(ThemeService.presets.length, (i) {
+                        final seleccionado = i == idx;
+                        return GestureDetector(
+                          onTap: () => ThemeService.setColorIndex(i),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: ThemeService.presets[i],
+                              shape: BoxShape.circle,
+                              border: seleccionado
+                                  ? Border.all(color: Colors.white, width: 2.5)
+                                  : null,
+                              boxShadow: seleccionado
+                                  ? [
+                                      BoxShadow(
+                                        color: ThemeService.presets[i]
+                                            .withValues(alpha: 0.5),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
                                   : null,
                             ),
-                          );
-                        },
-                      ),
+                            child: seleccionado
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 18,
+                                  )
+                                : null,
+                          ),
+                        );
+                      }),
                     );
                   },
                 ),
@@ -1878,6 +1896,169 @@ class _MenuItem extends StatelessWidget {
             Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🎯 SELECTOR DE DIFICULTAD (bottom sheet)
+// ─────────────────────────────────────────────────────────────────────────────
+class _DificultadSheet extends StatelessWidget {
+  final String nombre;
+  final Color color;
+  final IconData icono;
+  final void Function(NivelDificultad) onSelect;
+
+  const _DificultadSheet({
+    required this.nombre,
+    required this.color,
+    required this.icono,
+    required this.onSelect,
+  });
+
+  static const _niveles = [
+    (
+      nivel: NivelDificultad.facil,
+      label: 'Fácil',
+      rango: 'Números del 1 al 10',
+      icon: Icons.sentiment_satisfied_alt_rounded,
+      color: Color(0xFF43A047),
+      fondo: Color(0xFFE8F5E9),
+    ),
+    (
+      nivel: NivelDificultad.normal,
+      label: 'Normal',
+      rango: 'Números del 1 al 100',
+      icon: Icons.sentiment_neutral_rounded,
+      color: Color(0xFFFB8C00),
+      fondo: Color(0xFFFFF3E0),
+    ),
+    (
+      nivel: NivelDificultad.dificil,
+      label: 'Difícil',
+      rango: 'Números del 1 al 1000',
+      icon: Icons.sentiment_very_dissatisfied_rounded,
+      color: Color(0xFFE53935),
+      fondo: Color(0xFFFFEBEE),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Título
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icono, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nombre,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  Text(
+                    'Elige la dificultad',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Tarjetas de dificultad
+          ...(_niveles.map(
+            (n) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: GestureDetector(
+                onTap: () => onSelect(n.nivel),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: n.fondo,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(n.icon, color: n.color, size: 26),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              n.label,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: n.color,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              n.rango,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 14,
+                        color: Colors.grey.shade400,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )),
+        ],
       ),
     );
   }

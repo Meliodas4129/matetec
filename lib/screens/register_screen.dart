@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../services/local_storage_service.dart';
+import '../services/ia_service.dart';
 import '../theme/app_theme.dart';
 import 'verify_email_screen.dart';
 import 'diagnostico_screen.dart';
@@ -148,13 +149,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );
       } else {
-        // Mantener sesión activa para que VerifyEmailScreen detecte verificación
-        await cred.user!.sendEmailVerification();
+        // ── Correo de verificación con diseño MateTec (Flask) ─────────────
+        // Si Flask no está disponible, fallback a Firebase automáticamente.
+        final nombre = _nombreCtrl.text.trim();
+        bool envioPorFlask = false;
+        try {
+          await IAService.enviarVerificacion(email: email, nombre: nombre);
+          envioPorFlask = true;
+        } catch (_) {
+          // Flask no disponible
+        }
+        if (!envioPorFlask) {
+          await cred.user!.sendEmailVerification();
+        }
+
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => VerifyEmailScreen(email: email),
+            builder: (_) => VerifyEmailScreen(email: email, nombre: nombre),
           ),
         );
       }

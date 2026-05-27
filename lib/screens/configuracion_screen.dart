@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'welcome_screen.dart';
 import '../services/theme_service.dart';
+import '../services/ia_service.dart';
 
 class ConfiguracionScreen extends StatefulWidget {
   const ConfiguracionScreen({super.key});
@@ -13,8 +15,9 @@ class ConfiguracionScreen extends StatefulWidget {
 
 class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   bool _notificacionesActivas = true;
-  bool _sonidoActivo = true;
-  bool _temaOscuro = false;
+  bool _sonidoActivo          = true;
+  bool _temaOscuro            = false;
+  bool _enviandoCorreo        = false;
 
   @override
   void initState() {
@@ -42,6 +45,62 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     await prefs.setBool('notificaciones', _notificacionesActivas);
     await prefs.setBool('sonido', _sonidoActivo);
     await prefs.setBool('temaOscuro', _temaOscuro);
+  }
+
+  // ── Enviar resumen semanal por correo ────────────────────────────────────
+  Future<void> _enviarResumenSemanal() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Necesitas iniciar sesión para usar esta función.')),
+      );
+      return;
+    }
+
+    setState(() => _enviandoCorreo = true);
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (!doc.exists) throw Exception('Perfil no encontrado');
+
+      final data  = doc.data() ?? {};
+      final email = user.email ?? '';
+
+      if (email.isEmpty) {
+        throw Exception('No hay correo registrado en tu cuenta');
+      }
+
+      final ok = await IAService.enviarResumen(
+        destino: email,
+        datos: data,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok
+              ? '✅ Resumen enviado a $email'
+              : '❌ No se pudo enviar (verifica que el servidor Flask está activo)'),
+          backgroundColor: ok ? Colors.green[700] : Colors.red[700],
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(12),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _enviandoCorreo = false);
+    }
   }
 
   Future<void> _cerrarSesion() async {
@@ -268,6 +327,39 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                   },
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // SECCIÓN: RESUMEN SEMANAL (SCRUM-38)
+          Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                )
+              ],
+            ),
+            child: ListTile(
+              leading: _enviandoCorreo
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: ThemeService.primaryColor,
+                      ),
+                    )
+                  : Icon(Icons.email_outlined, color: ThemeService.primaryColor),
+              title: const Text('Enviar resumen semanal'),
+              subtitle: const Text('Recibe tus estadísticas por correo'),
+              trailing: const Icon(Icons.send_rounded, size: 18, color: Colors.grey),
+              onTap: _enviandoCorreo ? null : _enviarResumenSemanal,
             ),
           ),
 

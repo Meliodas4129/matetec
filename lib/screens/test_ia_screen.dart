@@ -32,7 +32,9 @@ class _TestIAScreenState extends State<TestIAScreen> {
       );
 
       setState(() {
-        resultado = "Nivel: ${data["descripcion"]}\n(Grado: ${data["grado"]})";
+        resultado = "Nivel: ${data["descripcion"]}\n"
+            "(Grado: ${data["grado"]})\n"
+            "Tema a reforzar: ${data["tema_debil"] ?? '-'}";
       });
     } catch (e) {
       setState(() {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/app_theme.dart';
+import '../services/ia_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   /// Si se pasa, pre-rellena el campo de correo.
@@ -43,14 +44,27 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
+    final email = _emailCtrl.text.trim();
+
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: _emailCtrl.text.trim(),
-      );
+      // ── Intento 1: correo con diseño MateTec vía Flask ──────────────────
+      bool envioPorFlask = false;
+      try {
+        await IAService.enviarReset(email: email);
+        envioPorFlask = true;
+      } catch (_) {
+        // Flask no disponible → fallback a Firebase
+      }
+
+      // ── Fallback: Firebase (genérico, siempre funciona) ─────────────────
+      if (!envioPorFlask) {
+        await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      }
+
       if (!mounted) return;
       setState(() {
         _enviado      = true;
-        _emailEnviado = _emailCtrl.text.trim();
+        _emailEnviado = email;
         _cooldown     = 60;
       });
       _iniciarCooldown();

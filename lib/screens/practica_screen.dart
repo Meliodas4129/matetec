@@ -197,7 +197,90 @@ class _PracticaScreenState extends State<PracticaScreen> {
     _timer?.cancel();
     setState(() => _fase = _Fase.resultados);
     if (!LocalStorageService.isGuest && _user != null) {
+      _contarPartida();
       _actualizarRetos();
+    }
+    // IA adaptativa: se llama UNA vez al terminar la partida (no por respuesta)
+    _actualizarNivelConIA();
+  }
+
+  // Incrementa el contador de partidas completadas para este tema
+  Future<void> _contarPartida() async {
+    if (_user == null) return;
+    final tema = widget.tema.name; // 'sumas', 'restas', etc.
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user!.uid)
+          .update({'temas.$tema.partidas': FieldValue.increment(1)});
+    } catch (e) {
+      debugPrint('Error contando partida: $e');
+    }
+  }
+
+  // ─── IA adaptativa: actualizar nivel al finalizar partida ────────────────
+  Future<void> _actualizarNivelConIA() async {
+    try {
+      Map<String, dynamic> data;
+      final tema = widget.tema.clave;
+
+      if (LocalStorageService.isGuest || _user == null) {
+        // Invitado: leer datos locales
+        data = LocalStorageService.getData();
+      } else {
+        // Con cuenta: leer Firestore
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_user!.uid)
+            .get();
+        if (!doc.exists || doc.data() == null) return;
+        data = doc.data()!;
+      }
+
+      final intentosTotales = (data['intentos'] ?? 1) as int;
+      final tiempoTotal     = ((data['tiempo_total'] ?? 0) as num).toDouble();
+      final tiempoPromedio  = tiempoTotal / intentosTotales.clamp(1, 1 << 31);
+
+      // Precisión por tema (0.0 – 1.0)
+      double _precisionTema(String t) {
+        final temaMap = (data['temas'] as Map<String, dynamic>?)?[t]
+            as Map<String, dynamic>?;
+        if (temaMap == null) return 0.0;
+        final ac  = (temaMap['aciertos'] ?? 0) as int;
+        final int_ = (temaMap['intentos'] ?? 0) as int;
+        if (int_ == 0) return 0.0;
+        return ac / int_;
+      }
+
+      final ia = await IAService.clasificar(
+        aciertos:            (data['aciertos'] ?? 0) as int,
+        errores:             (data['errores']  ?? 0) as int,
+        tiempo:              tiempoPromedio,
+        intentos:            intentosTotales,
+        precisionSumas:      _precisionTema('sumas'),
+        precisionRestas:     _precisionTema('restas'),
+        precisionMult:       _precisionTema('multiplicacion'),
+        precisionDiv:        _precisionTema('division'),
+        temaActual:          tema,
+      );
+
+      final nuevoGrado = (ia['grado'] as num).toInt();
+
+      if (LocalStorageService.isGuest || _user == null) {
+        await LocalStorageService.updateFields({
+          'grado':     ia['descripcion'],
+          'grado_num': nuevoGrado,
+        });
+      } else {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_user!.uid)
+            .update({'grado': ia['descripcion'], 'grado_num': nuevoGrado});
+      }
+
+      _mostrarCambioNivel(nuevoGrado);
+    } catch (e) {
+      debugPrint('IA no disponible (se ignorará): $e');
     }
   }
 
@@ -541,25 +624,6 @@ class _PracticaScreenState extends State<PracticaScreen> {
 
       await _actualizarRachaDias(null);
 
-      // IA adaptativa para invitados (usa datos locales)
-      try {
-        final data = LocalStorageService.getData();
-        final ia = await IAService.clasificar(
-          aciertos: (data['aciertos'] ?? 0) as int,
-          errores:  (data['errores']  ?? 0) as int,
-          tiempo: ((data['tiempo_total'] ?? 0) as num).toDouble() /
-              ((data['intentos'] ?? 1) as int).clamp(1, 1 << 31),
-          intentos: (data['intentos'] ?? 0) as int,
-        );
-        final nuevoGrado = (ia['grado'] as num).toInt();
-        await LocalStorageService.updateFields({
-          'grado': ia['descripcion'],
-          'grado_num': nuevoGrado,
-        });
-        _mostrarCambioNivel(nuevoGrado);
-      } catch (e) {
-        debugPrint('IA no disponible: $e');
-      }
     } else {
       // ── Con cuenta: actualizar Firestore ────────────────────────────────
       final ref = FirebaseFirestore.instance
@@ -582,24 +646,6 @@ class _PracticaScreenState extends State<PracticaScreen> {
 
       await _actualizarRachaDias(ref);
 
-      try {
-        final docActual = await ref.get();
-        final data = docActual.data();
-        if (data == null) return;
-
-        final ia = await IAService.clasificar(
-          aciertos: (data['aciertos'] ?? 0) as int,
-          errores:  (data['errores']  ?? 0) as int,
-          tiempo: ((data['tiempo_total'] ?? 0) as num).toDouble() /
-              ((data['intentos'] ?? 1) as int).clamp(1, 1 << 31),
-          intentos: (data['intentos'] ?? 0) as int,
-        );
-        final nuevoGrado = (ia['grado'] as num).toInt();
-        await ref.update({'grado': ia['descripcion'], 'grado_num': nuevoGrado});
-        _mostrarCambioNivel(nuevoGrado);
-      } catch (e) {
-        debugPrint('IA no disponible: $e');
-      }
     }
   }
 
@@ -760,70 +806,93 @@ class _PracticaScreenState extends State<PracticaScreen> {
 
   // ─── Fase 1: Selección de duración ───────────────────────────────────────
   Widget _buildSeleccion(Color color) {
+    final tema = widget.tema;
     return SingleChildScrollView(
       key: const ValueKey('seleccion'),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 30),
+          // Header con ícono del tema
           Container(
-            width: 80,
-            height: 80,
+            width: 72, height: 72,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.timer_outlined, color: color, size: 40),
+            child: Icon(tema.icono, color: color, size: 34),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
           Text(
-            'Modo Contrarreloj',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: color,
+            tema.nombre,
+            style: const TextStyle(
+              fontSize: 24, fontWeight: FontWeight.w800,
+              color: Color(0xFF1A1A1A),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Resuelve cuántos puedas antes que se acabe el tiempo. ¡Cada acierto suma 10 puntos y hay bonus por racha!',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey),
+          const SizedBox(height: 4),
+          Text(
+            '¿Cuánto tiempo quieres practicar?',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
           ),
-          const SizedBox(height: 30),
-          const Text(
-            'Elige la duración',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _BotonDuracion(
-            label: '30 segundos',
-            sub: 'Modo rápido',
-            icono: Icons.flash_on,
-            color: color,
+          const SizedBox(height: 28),
+
+          // Tarjeta 30s
+          _TiempoCard(
+            segundos: 30,
+            titulo: '¡Súper rápido!',
+            descripcion: 'Un reto relámpago — ¿cuántos puedes?',
+            icono: Icons.bolt_rounded,
+            colorFondo: const Color(0xFFFFEBEE),
+            colorIcono: Color(0xFFE53935),
             onTap: () => _iniciarJuego(30),
           ),
           const SizedBox(height: 12),
-          _BotonDuracion(
-            label: '60 segundos',
-            sub: 'El clásico',
-            icono: Icons.timer,
-            color: color,
+
+          // Tarjeta 60s — destacada
+          _TiempoCard(
+            segundos: 60,
+            titulo: 'El clásico',
+            descripcion: 'El tiempo perfecto para calentar motores',
+            icono: Icons.timer_rounded,
+            colorFondo: color.withValues(alpha: 0.12),
+            colorIcono: color,
             destacado: true,
+            colorDestacado: color,
             onTap: () => _iniciarJuego(60),
           ),
           const SizedBox(height: 12),
-          _BotonDuracion(
-            label: '90 segundos',
-            sub: 'Modo relajado',
-            icono: Icons.hourglass_bottom,
-            color: color,
+
+          // Tarjeta 90s
+          _TiempoCard(
+            segundos: 90,
+            titulo: 'Con calma',
+            descripcion: 'Más tiempo para pensar sin estresarte',
+            icono: Icons.hourglass_bottom_rounded,
+            colorFondo: const Color(0xFFE8F5E9),
+            colorIcono: Color(0xFF43A047),
             onTap: () => _iniciarJuego(90),
+          ),
+
+          const SizedBox(height: 20),
+          // Info de puntos
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.star_rounded, color: Colors.amber.shade600, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  'Cada acierto = 10 pts · Racha bonus extra',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1325,6 +1394,152 @@ class _StatGrande extends StatelessWidget {
             style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Tarjeta de selección de tiempo ───────────────────────────────────────────
+class _TiempoCard extends StatelessWidget {
+  final int segundos;
+  final String titulo;
+  final String descripcion;
+  final IconData icono;
+  final Color colorFondo;
+  final Color colorIcono;
+  final bool destacado;
+  final Color? colorDestacado;
+  final VoidCallback onTap;
+
+  const _TiempoCard({
+    required this.segundos,
+    required this.titulo,
+    required this.descripcion,
+    required this.icono,
+    required this.colorFondo,
+    required this.colorIcono,
+    required this.onTap,
+    this.destacado = false,
+    this.colorDestacado,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = destacado ? (colorDestacado ?? colorIcono) : Colors.white;
+    final textColor = destacado ? Colors.white : const Color(0xFF1A1A1A);
+    final subColor = destacado
+        ? Colors.white.withValues(alpha: 0.85)
+        : Colors.grey.shade500;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: destacado ? Colors.transparent : Colors.grey.shade200,
+            width: 1.5,
+          ),
+          boxShadow: destacado
+              ? [BoxShadow(
+                  color: colorIcono.withValues(alpha: 0.30),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                )]
+              : [],
+        ),
+        child: Row(
+          children: [
+            // Ícono con badge de segundos
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: destacado
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : colorFondo,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icono,
+                      color: destacado ? Colors.white : colorIcono, size: 28),
+                ),
+                Positioned(
+                  bottom: -5, right: -8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: destacado ? Colors.white : colorIcono,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${segundos}s',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: destacado ? colorIcono : Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        titulo,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textColor,
+                        ),
+                      ),
+                      if (destacado) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            'Popular',
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    descripcion,
+                    style: TextStyle(fontSize: 12, color: subColor),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: destacado
+                  ? Colors.white.withValues(alpha: 0.7)
+                  : Colors.grey.shade400,
+            ),
+          ],
+        ),
       ),
     );
   }

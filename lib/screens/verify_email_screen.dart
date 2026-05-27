@@ -2,17 +2,25 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
+import '../services/ia_service.dart';
 import 'login_screen.dart';
 import 'home_inicio.dart';
 import 'diagnostico_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
   /// El correo al que se envió la verificación (solo para mostrarlo).
   final String email;
 
-  const VerifyEmailScreen({super.key, required this.email});
+  /// Nombre del alumno — se usa en el asunto del correo personalizado.
+  final String nombre;
+
+  const VerifyEmailScreen({
+    super.key,
+    required this.email,
+    this.nombre = '',
+  });
 
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -52,10 +60,30 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) { _volverAlLogin(); return; }
-      await user.sendEmailVerification();
+
+      // ── Intento 1: correo con diseño MateTec vía Flask ────────────────────
+      bool envioPorFlask = false;
+      try {
+        final nombre = widget.nombre.isNotEmpty
+            ? widget.nombre
+            : (user.displayName ?? widget.email.split('@').first);
+        await IAService.enviarVerificacion(
+          email:  widget.email,
+          nombre: nombre,
+        );
+        envioPorFlask = true;
+      } catch (_) {
+        // Flask no disponible → fallback a Firebase
+      }
+
+      // ── Fallback: correo de Firebase (genérico pero siempre funciona) ─────
+      if (!envioPorFlask) {
+        await user.sendEmailVerification();
+      }
+
       if (!mounted) return;
       setState(() {
-        _reenviado = true;
+        _reenviado        = true;
         _segundosCooldown = 60;
       });
       _iniciarCooldown();
