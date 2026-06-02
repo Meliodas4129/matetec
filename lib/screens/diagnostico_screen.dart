@@ -236,7 +236,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                       ),
                     ),
                     Text('aciertos',
-                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                        style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                     const SizedBox(height: 8),
                     Text(
                       'Tu nivel estimado: $grado',
@@ -244,7 +244,7 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
                     ),
                     Text(
                       '(tu nivel guardado no cambia)',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
                 ),

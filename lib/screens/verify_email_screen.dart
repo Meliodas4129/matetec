@@ -259,7 +259,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                 Expanded(
                   child: Container(
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFAFAFA),
+                      color: AppColors.background,
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(32)),
                     ),
@@ -289,7 +289,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Color(0xFF555555),
+                              color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -309,7 +309,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey.shade500,
+                              color: AppColors.textSecondary,
                               height: 1.5,
                             ),
                           ),
@@ -360,7 +360,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                   : _reenviar,
                               style: OutlinedButton.styleFrom(
                                 side: BorderSide(
-                                    color: Colors.grey.shade300, width: 1.5),
+                                    color: AppColors.border, width: 1.5),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -383,8 +383,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                         fontSize: 15,
                                         fontWeight: FontWeight.w500,
                                         color: _segundosCooldown > 0
-                                            ? Colors.grey.shade400
-                                            : const Color(0xFF444444),
+                                            ? AppColors.textMuted
+                                            : AppColors.textSecondary,
                                       ),
                                     ),
                             ),
@@ -399,7 +399,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                               '← Usar otro correo o cuenta',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey.shade500,
+                                color: AppColors.textSecondary,
                                 decoration: TextDecoration.underline,
                               ),
                             ),
@@ -415,14 +415,14 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                 height: 12,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 1.5,
-                                  color: Colors.grey.shade400,
+                                  color: AppColors.textMuted,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Text(
                                 'Verificando automáticamente…',
                                 style: TextStyle(
-                                    fontSize: 11, color: Colors.grey.shade400),
+                                    fontSize: 11, color: AppColors.textMuted),
                               ),
                             ],
                           ),

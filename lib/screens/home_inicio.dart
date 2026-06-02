@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/local_storage_service.dart';
+import '../services/notification_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/sync_indicator.dart';
 import 'admin_screen.dart';
@@ -11,7 +13,6 @@ import 'diagnostico_screen.dart';
 import 'practica_screen.dart';
 import 'evaluacion_final_screen.dart';
 import 'configuracion_screen.dart';
-import 'practica_screen.dart' show NivelDificultad;
 import 'perfil_editable_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -95,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
+        backgroundColor: AppColors.background,
         body: SafeArea(
           bottom: false,
           child: isGuest
@@ -131,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -144,9 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
             top: false,
             child: BottomNavigationBar(
               currentIndex: _currentIndex,
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.surface,
               selectedItemColor: rojo,
-              unselectedItemColor: Colors.grey.shade400,
+              unselectedItemColor: AppColors.textMuted,
               selectedLabelStyle: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -213,7 +214,7 @@ class _Inicio extends StatelessWidget {
       nombre: 'Sumas',
       icono: Icons.add,
       color: Color(0xFFE53935),
-      fondo: Color(0xFFFFEBEE),
+      fondo: AppColors.temaSumasSoft,
       subtitulo: 'Practica sumando',
       clave: 'sumas',
       siguiente: 'restas',
@@ -222,8 +223,8 @@ class _Inicio extends StatelessWidget {
     (
       nombre: 'Restas',
       icono: Icons.remove,
-      color: Color(0xFF1E88E5),
-      fondo: Color(0xFFE3F2FD),
+      color: AppColors.temaRestas,
+      fondo: AppColors.temaRestasSoft,
       subtitulo: 'Practica restando',
       clave: 'restas',
       siguiente: 'multiplicacion',
@@ -232,8 +233,8 @@ class _Inicio extends StatelessWidget {
     (
       nombre: 'Multiplicación',
       icono: Icons.close,
-      color: Color(0xFF43A047),
-      fondo: Color(0xFFE8F5E9),
+      color: AppColors.temaMult,
+      fondo: AppColors.temaMultSoft,
       subtitulo: 'Tablas de multiplicar',
       clave: 'multiplicacion',
       siguiente: 'division',
@@ -242,8 +243,8 @@ class _Inicio extends StatelessWidget {
     (
       nombre: 'División',
       icono: Icons.more_horiz,
-      color: Color(0xFFFB8C00),
-      fondo: Color(0xFFFFF3E0),
+      color: AppColors.temaDiv,
+      fondo: AppColors.temaDivSoft,
       subtitulo: 'Divisiones exactas',
       clave: 'division',
       siguiente: '',
@@ -276,7 +277,7 @@ class _Inicio extends StatelessWidget {
                       _saludo(),
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade600,
+                        color: AppColors.textSecondary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -286,7 +287,7 @@ class _Inicio extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.textPrimary,
                         height: 1.1,
                       ),
                     ),
@@ -327,7 +328,7 @@ class _Inicio extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: AppColors.surface,
                   ),
                 ),
               ),
@@ -342,8 +343,8 @@ class _Inicio extends StatelessWidget {
               Expanded(
                 child: _StatPill(
                   icon: Icons.local_fire_department,
-                  iconColor: const Color(0xFFFB8C00),
-                  iconBg: const Color(0xFFFFF3E0),
+                  iconColor: AppColors.temaDiv,
+                  iconBg: AppColors.temaDivSoft,
                   label: 'Racha',
                   valor: '$racha',
                   sub: racha == 1 ? 'día' : 'días',
@@ -354,7 +355,7 @@ class _Inicio extends StatelessWidget {
                 child: _StatPill(
                   icon: Icons.star_rounded,
                   iconColor: const Color(0xFFFFA000),
-                  iconBg: const Color(0xFFFFF8E1),
+                  iconBg: const Color(0x1FFFA000),
                   label: 'Puntos',
                   valor: '$puntos',
                   sub: 'totales',
@@ -374,7 +375,7 @@ class _Inicio extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1A1A),
+                  color: AppColors.textPrimary,
                 ),
               ),
               Text(
@@ -382,7 +383,7 @@ class _Inicio extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade500,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -390,7 +391,7 @@ class _Inicio extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Aprueba la evaluación de cada tema para avanzar',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
           GridView.builder(
@@ -451,9 +452,9 @@ class _StatPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
@@ -475,7 +476,7 @@ class _StatPill extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -487,7 +488,7 @@ class _StatPill extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.textPrimary,
                         height: 1.1,
                       ),
                     ),
@@ -498,7 +499,7 @@ class _StatPill extends StatelessWidget {
                         sub,
                         style: TextStyle(
                           fontSize: 10,
-                          color: Colors.grey.shade500,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ),
@@ -513,7 +514,7 @@ class _StatPill extends StatelessWidget {
   }
 }
 
-class _TemaCard extends StatelessWidget {
+class _TemaCard extends StatefulWidget {
   final String nombre;
   final IconData icono;
   final Color color;
@@ -540,13 +541,36 @@ class _TemaCard extends StatelessWidget {
     required this.temaData,
   });
 
-  // Datos de progreso hacia la evaluación (basado en PARTIDAS, no preguntas)
-  int get _partidas => (temaData['partidas'] ?? 0) as int;
-  int get _evalDesde => (temaData['eval_desde_intentos'] ?? 5) as int;
-  bool get _evalAprobada => (temaData['eval_aprobada'] ?? false) as bool;
-  bool get _puedeEvaluar =>
-      desbloqueado && !_evalAprobada && _partidas >= _evalDesde;
-  int get _practicasParaEval => (_evalDesde - _partidas).clamp(0, _evalDesde);
+  @override
+  State<_TemaCard> createState() => _TemaCardState();
+}
+
+class _TemaCardState extends State<_TemaCard> {
+  // Rastrear si ya mostramos la notificación de evaluación en esta sesión
+  bool _notifEvalMostrada = false;
+
+  // ── Getters de conveniencia ───────────────────────────────────────────────
+  int  get _partidas        => (widget.temaData['partidas']         as int?) ?? 0;
+  int  get _partidasDificil => (widget.temaData['partidas_dificil'] as int?) ?? 0;
+  int  get _evalDesde       => (widget.temaData['eval_desde_intentos'] as int?) ?? 5;
+  bool get _evalAprobada    => (widget.temaData['eval_aprobada'] as bool?) ?? false;
+  bool get _puedeEvaluar    =>
+      widget.desbloqueado && !_evalAprobada && _partidasDificil >= _evalDesde;
+  int  get _practicasParaEval =>
+      (_evalDesde - _partidasDificil).clamp(0, _evalDesde);
+
+  @override
+  void didUpdateWidget(_TemaCard old) {
+    super.didUpdateWidget(old);
+    // Detectar cuando la evaluación se acaba de desbloquear
+    final antesPodiaEvaluar = old.desbloqueado &&
+        !(old.temaData['eval_aprobada'] ?? false) &&
+        ((old.temaData['partidas_dificil'] as int?) ?? 0) >= _evalDesde;
+    if (!antesPodiaEvaluar && _puedeEvaluar && !_notifEvalMostrada) {
+      _notifEvalMostrada = true;
+      NotificationService.mostrarEvaluacionDesbloqueada(widget.nombre);
+    }
+  }
 
   void _abrirPractica(BuildContext context) {
     showModalBottomSheet(
@@ -554,17 +578,17 @@ class _TemaCard extends StatelessWidget {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => _DificultadSheet(
-        nombre: nombre,
-        color: color,
-        icono: icono,
+        nombre: widget.nombre,
+        color: widget.color,
+        icono: widget.icono,
         onSelect: (nivel) {
           Navigator.pop(context);
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => PracticaScreen(
-                tema: temaPractica,
-                gradoNum: gradoNum,
+                tema: widget.temaPractica,
+                gradoNum: widget.gradoNum,
                 nivelDificultad: nivel,
               ),
             ),
@@ -579,9 +603,9 @@ class _TemaCard extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => EvaluacionFinalScreen(
-          tema: clave,
-          gradoNum: gradoNum,
-          siguienteTema: siguienteTema,
+          tema: widget.clave,
+          gradoNum: widget.gradoNum,
+          siguienteTema: widget.siguienteTema,
           intentosActuales: _partidas,
         ),
       ),
@@ -595,15 +619,15 @@ class _TemaCard extends StatelessWidget {
       'multiplicacion': 'Restas',
       'division': 'Multiplicación',
     };
-    final prereq = prereqs[clave] ?? '';
+    final prereq = prereqs[widget.clave] ?? '';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           prereq.isNotEmpty
-              ? 'Aprueba la evaluación de $prereq para desbloquear $nombre'
+              ? 'Aprueba la evaluación de $prereq para desbloquear $widget.nombre'
               : 'Completa los temas anteriores primero',
         ),
-        backgroundColor: Colors.grey.shade800,
+        backgroundColor: AppColors.textPrimary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(12),
@@ -617,18 +641,18 @@ class _TemaCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: desbloqueado
+        onTap: widget.desbloqueado
             ? () => _abrirPractica(context)
             : () => _mostrarBloqueado(context),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _puedeEvaluar
-                  ? color.withValues(alpha: 0.5)
-                  : Colors.grey.shade200,
+                  ? widget.color.withValues(alpha: 0.5)
+                  : AppColors.border,
               width: _puedeEvaluar ? 1.5 : 1.0,
             ),
           ),
@@ -643,12 +667,12 @@ class _TemaCard extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: desbloqueado ? fondo : Colors.grey.shade100,
+                      color: widget.desbloqueado ? widget.fondo : AppColors.border,
                       borderRadius: BorderRadius.circular(13),
                     ),
                     child: Icon(
-                      desbloqueado ? icono : Icons.lock_outline,
-                      color: desbloqueado ? color : Colors.grey.shade400,
+                      widget.desbloqueado ? widget.icono : Icons.lock_outline,
+                      color: widget.desbloqueado ? widget.color : AppColors.textMuted,
                       size: 21,
                     ),
                   ),
@@ -691,22 +715,22 @@ class _TemaCard extends StatelessWidget {
 
               // Nombre del tema
               Text(
-                nombre,
+                widget.nombre,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: desbloqueado
-                      ? const Color(0xFF1A1A1A)
-                      : Colors.grey.shade500,
+                  color: widget.desbloqueado
+                      ? AppColors.textPrimary
+                      : AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: 2),
 
               // Subtítulo / estado
-              if (!desbloqueado)
+              if (!widget.desbloqueado)
                 Text(
                   'Bloquado',
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
+                  style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                 )
               else if (_evalAprobada)
                 Text(
@@ -722,20 +746,20 @@ class _TemaCard extends StatelessWidget {
                   '¡Listo para evaluar!',
                   style: TextStyle(
                     fontSize: 10,
-                    color: color,
+                    color: widget.color,
                     fontWeight: FontWeight.w600,
                   ),
                 )
               else
                 Text(
-                  subtitulo,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  widget.subtitulo,
+                  style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
                 ),
 
               const Spacer(),
 
               // Barra de progreso hacia evaluación o botón ¡Evaluarme!
-              if (desbloqueado && !_evalAprobada) ...[
+              if (widget.desbloqueado && !_evalAprobada) ...[
                 if (_puedeEvaluar) ...[
                   // Botón de evaluación
                   SizedBox(
@@ -744,7 +768,7 @@ class _TemaCard extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () => _abrirEvaluacion(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: color,
+                        backgroundColor: widget.color,
                         foregroundColor: Colors.white,
                         padding: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
@@ -767,17 +791,17 @@ class _TemaCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: _evalDesde > 0
-                          ? (_partidas / _evalDesde).clamp(0.0, 1.0)
+                          ? (_partidasDificil / _evalDesde).clamp(0.0, 1.0)
                           : 0.0,
                       minHeight: 5,
-                      backgroundColor: Colors.grey.shade100,
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                      backgroundColor: AppColors.border,
+                      valueColor: AlwaysStoppedAnimation<Color>(widget.color),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$_practicasParaEval partida${_practicasParaEval != 1 ? 's' : ''} más para evaluación',
-                    style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                    '$_practicasParaEval partida${_practicasParaEval != 1 ? 's' : ''} en 🔴 Difícil para evaluación',
+                    style: TextStyle(fontSize: 9, color: AppColors.textSecondary),
                   ),
                 ],
               ],
@@ -807,9 +831,9 @@ class _Progreso extends StatelessWidget {
 
   static const _colores = [
     Color(0xFFE53935),
-    Color(0xFF1E88E5),
-    Color(0xFF43A047),
-    Color(0xFFFB8C00),
+    AppColors.temaRestas,
+    AppColors.temaMult,
+    AppColors.temaDiv,
   ];
   static const _nombres = ['Sumas', 'Restas', 'Multiplicación', 'División'];
   static const _claves = ['sumas', 'restas', 'multiplicacion', 'division'];
@@ -823,8 +847,8 @@ class _Progreso extends StatelessWidget {
   ({double valor, int intentos, int aciertos}) _statsTema(String clave) {
     final t = temas[clave];
     if (t is Map) {
-      final int a = (t['aciertos'] ?? 0) as int;
-      final int i = (t['intentos'] ?? 0) as int;
+      final int a = (t['aciertos'] as int?) ?? 0;
+      final int i = (t['intentos'] as int?) ?? 0;
       final double v = i > 0 ? a / i : 0.0;
       return (valor: v.clamp(0.0, 1.0), intentos: i, aciertos: a);
     }
@@ -859,7 +883,7 @@ class _Progreso extends StatelessWidget {
             style: TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A1A),
+              color: AppColors.textPrimary,
               height: 1.1,
             ),
           ),
@@ -868,7 +892,7 @@ class _Progreso extends StatelessWidget {
             intentosReales > 0
                 ? 'Llevas $intentosReales ejercicios resueltos'
                 : 'Empieza a practicar para ver tu progreso',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 26),
 
@@ -876,9 +900,9 @@ class _Progreso extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
@@ -895,7 +919,7 @@ class _Progreso extends StatelessWidget {
                       _MiniStat(
                         label: 'Aciertos',
                         valor: '$aciertosReales',
-                        color: const Color(0xFF43A047),
+                        color: AppColors.temaMult,
                       ),
                       const SizedBox(height: 14),
                       _MiniStat(
@@ -907,7 +931,7 @@ class _Progreso extends StatelessWidget {
                       _MiniStat(
                         label: 'Ejercicios',
                         valor: '$intentosReales',
-                        color: const Color(0xFF1E88E5),
+                        color: AppColors.temaRestas,
                       ),
                     ],
                   ),
@@ -923,13 +947,13 @@ class _Progreso extends StatelessWidget {
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A1A),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Tu rendimiento en cada tipo de operación',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
           ..._nombres.asMap().entries.map((e) {
@@ -977,7 +1001,7 @@ class _AnilloPrecision extends StatelessWidget {
             child: CircularProgressIndicator(
               value: hayDatos ? valor : 0,
               strokeWidth: 10,
-              backgroundColor: Colors.grey.shade100,
+              backgroundColor: AppColors.border,
               valueColor: AlwaysStoppedAnimation<Color>(
                 _colorDePrecision(valor),
               ),
@@ -993,15 +1017,15 @@ class _AnilloPrecision extends StatelessWidget {
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                   color: hayDatos
-                      ? const Color(0xFF1A1A1A)
-                      : Colors.grey.shade400,
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted,
                 ),
               ),
               Text(
                 'Precisión',
                 style: TextStyle(
                   fontSize: 10,
-                  color: Colors.grey.shade500,
+                  color: AppColors.textSecondary,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1013,9 +1037,9 @@ class _AnilloPrecision extends StatelessWidget {
   }
 
   Color _colorDePrecision(double v) {
-    if (!hayDatos) return Colors.grey.shade300;
-    if (v >= 0.8) return const Color(0xFF43A047);
-    if (v >= 0.5) return const Color(0xFF1E88E5);
+    if (!hayDatos) return AppColors.border;
+    if (v >= 0.8) return AppColors.temaMult;
+    if (v >= 0.5) return AppColors.temaRestas;
     return const Color(0xFFE53935);
   }
 }
@@ -1043,7 +1067,7 @@ class _MiniStat extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
           ),
         ),
         Text(
@@ -1051,7 +1075,7 @@ class _MiniStat extends StatelessWidget {
           style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF1A1A1A),
+            color: AppColors.textPrimary,
           ),
         ),
       ],
@@ -1079,9 +1103,9 @@ class _ProgresoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
@@ -1091,12 +1115,12 @@ class _ProgresoCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: hayDatos
                   ? color.withValues(alpha: 0.12)
-                  : Colors.grey.shade100,
+                  : AppColors.border,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icono,
-              color: hayDatos ? color : Colors.grey.shade400,
+              color: hayDatos ? color : AppColors.textMuted,
               size: 22,
             ),
           ),
@@ -1113,7 +1137,7 @@ class _ProgresoCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     if (hayDatos)
@@ -1134,21 +1158,21 @@ class _ProgresoCard extends StatelessWidget {
                     child: LinearProgressIndicator(
                       value: valor,
                       minHeight: 6,
-                      backgroundColor: Colors.grey.shade100,
+                      backgroundColor: AppColors.border,
                       valueColor: AlwaysStoppedAnimation(color),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '$intentos ${intentos == 1 ? "ejercicio" : "ejercicios"}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                   ),
                 ] else
                   Text(
                     'Aún no has practicado',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade400,
+                      color: AppColors.textMuted,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -1204,7 +1228,7 @@ const _retosDefinidos = [
     titulo: 'Puntería',
     descripcion: '80% de precisión con al menos 10 intentos',
     icono: Icons.my_location_rounded,
-    color: Color(0xFF1E88E5),
+    color: AppColors.temaRestas,
     puntos: 40,
     meta: 80,
     unidad: '% precisión',
@@ -1214,7 +1238,7 @@ const _retosDefinidos = [
     titulo: 'Constancia del día',
     descripcion: '25 ejercicios en total hoy',
     icono: Icons.fitness_center_rounded,
-    color: Color(0xFF43A047),
+    color: AppColors.temaMult,
     puntos: 30,
     meta: 25,
     unidad: 'ejercicios',
@@ -1288,12 +1312,12 @@ class _Retos extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   Text(
                     'Se reinician cada medianoche',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -1343,9 +1367,9 @@ class _Retos extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
@@ -1353,7 +1377,7 @@ class _Retos extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8E1),
+                    color: const Color(0x1FFFA000),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -1378,7 +1402,7 @@ class _Retos extends StatelessWidget {
                         '$puntos puntos totales acumulados',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade500,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -1419,12 +1443,12 @@ class _RetoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: completado
               ? def.color.withValues(alpha: 0.4)
-              : Colors.grey.shade200,
+              : AppColors.border,
           width: completado ? 1.5 : 1.0,
         ),
       ),
@@ -1439,12 +1463,12 @@ class _RetoCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: completado
                       ? def.color.withValues(alpha: 0.12)
-                      : Colors.grey.shade100,
+                      : AppColors.border,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   completado ? Icons.check_circle_rounded : def.icono,
-                  color: completado ? def.color : Colors.grey.shade500,
+                  color: completado ? def.color : AppColors.textSecondary,
                   size: 22,
                 ),
               ),
@@ -1458,14 +1482,14 @@ class _RetoCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1A1A),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     Text(
                       def.descripcion,
                       style: TextStyle(
                         fontSize: 11,
-                        color: Colors.grey.shade500,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                   ],
@@ -1479,7 +1503,7 @@ class _RetoCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: completado
                       ? def.color.withValues(alpha: 0.1)
-                      : Colors.grey.shade100,
+                      : AppColors.border,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -1487,7 +1511,7 @@ class _RetoCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: completado ? def.color : Colors.grey.shade600,
+                    color: completado ? def.color : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -1500,7 +1524,7 @@ class _RetoCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: fraccion,
               minHeight: 6,
-              backgroundColor: Colors.grey.shade100,
+              backgroundColor: AppColors.border,
               valueColor: AlwaysStoppedAnimation<Color>(
                 completado ? def.color : def.color.withValues(alpha: 0.5),
               ),
@@ -1513,7 +1537,7 @@ class _RetoCard extends StatelessWidget {
                 : '$progreso / ${def.meta} ${def.unidad}',
             style: TextStyle(
               fontSize: 10,
-              color: completado ? def.color : Colors.grey.shade500,
+              color: completado ? def.color : AppColors.textSecondary,
               fontWeight: completado ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
@@ -1560,9 +1584,9 @@ class _Perfil extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
@@ -1696,84 +1720,6 @@ class _Perfil extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // ── Selector de color del tema ────────────────────────────────
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.palette_outlined,
-                      color: Colors.grey.shade600,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Color del tema',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ValueListenableBuilder<int>(
-                  valueListenable: ThemeService.colorIndexNotifier,
-                  builder: (context, idx, _) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: List.generate(ThemeService.presets.length, (i) {
-                        final seleccionado = i == idx;
-                        return GestureDetector(
-                          onTap: () => ThemeService.setColorIndex(i),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: ThemeService.presets[i],
-                              shape: BoxShape.circle,
-                              border: seleccionado
-                                  ? Border.all(color: Colors.white, width: 2.5)
-                                  : null,
-                              boxShadow: seleccionado
-                                  ? [
-                                      BoxShadow(
-                                        color: ThemeService.presets[i]
-                                            .withValues(alpha: 0.5),
-                                        blurRadius: 8,
-                                        spreadRadius: 1,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: seleccionado
-                                ? const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 18,
-                                  )
-                                : null,
-                          ),
-                        );
-                      }),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
           // ── Salir / Cerrar sesión ─────────────────────────────────────
           InkWell(
             borderRadius: BorderRadius.circular(14),
@@ -1800,7 +1746,7 @@ class _Perfil extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFEBEE),
+                color: AppColors.temaSumasSoft,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: const Color(0xFFFFCDD2)),
               ),
@@ -1836,9 +1782,9 @@ class _StatMini extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [
@@ -1876,13 +1822,13 @@ class _MenuItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: AppColors.border),
         ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.grey.shade600, size: 20),
+            Icon(icon, color: AppColors.textSecondary, size: 20),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -1893,7 +1839,7 @@ class _MenuItem extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+            Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
           ],
         ),
       ),
@@ -1923,16 +1869,16 @@ class _DificultadSheet extends StatelessWidget {
       label: 'Fácil',
       rango: 'Números del 1 al 10',
       icon: Icons.sentiment_satisfied_alt_rounded,
-      color: Color(0xFF43A047),
-      fondo: Color(0xFFE8F5E9),
+      color: AppColors.temaMult,
+      fondo: AppColors.temaMultSoft,
     ),
     (
       nivel: NivelDificultad.normal,
       label: 'Normal',
       rango: 'Números del 1 al 100',
       icon: Icons.sentiment_neutral_rounded,
-      color: Color(0xFFFB8C00),
-      fondo: Color(0xFFFFF3E0),
+      color: AppColors.temaDiv,
+      fondo: AppColors.temaDivSoft,
     ),
     (
       nivel: NivelDificultad.dificil,
@@ -1940,7 +1886,7 @@ class _DificultadSheet extends StatelessWidget {
       rango: 'Números del 1 al 1000',
       icon: Icons.sentiment_very_dissatisfied_rounded,
       color: Color(0xFFE53935),
-      fondo: Color(0xFFFFEBEE),
+      fondo: AppColors.temaSumasSoft,
     ),
   ];
 
@@ -1948,7 +1894,7 @@ class _DificultadSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFFAFAFA),
+        color: AppColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
@@ -1960,7 +1906,7 @@ class _DificultadSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: AppColors.border,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1986,12 +1932,12 @@ class _DificultadSheet extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   Text(
                     'Elige la dificultad',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -2008,9 +1954,9 @@ class _DificultadSheet extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Row(
                     children: [
@@ -2041,16 +1987,17 @@ class _DificultadSheet extends StatelessWidget {
                               n.rango,
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade500,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Icon(
                         Icons.arrow_forward_ios_rounded,
                         size: 14,
-                        color: Colors.grey.shade400,
+                        color: AppColors.textMuted,
                       ),
                     ],
                   ),

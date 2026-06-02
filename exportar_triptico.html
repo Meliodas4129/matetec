@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Exportar tríptico — MateTec</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  body { font-family: sans-serif; background: #07070A; color: #ccc;
+         display: flex; flex-direction: column; align-items: center;
+         justify-content: center; min-height: 100vh; gap: 20px; }
+  h2 { color: #FF3A2F; }
+  p  { font-size: 13px; color: #666; max-width: 480px; text-align: center; }
+  button {
+    padding: 14px 36px; font-size: 16px; font-weight: 700;
+    background: #FF3A2F; color: white; border: none; border-radius: 10px;
+    cursor: pointer; box-shadow: 0 0 24px rgba(255,58,47,.4);
+  }
+  button:hover { background: #e02a20; }
+  #status { font-size: 13px; color: #888; }
+  iframe {
+    width: 1px; height: 1px; opacity: 0; position: absolute;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<h2>📸 Exportar tríptico como imagen</h2>
+<p>Haz clic en el botón. El tríptico se abrirá en un iframe oculto,
+   se renderizará con html2canvas y se descargará automáticamente como PNG.</p>
+<button onclick="exportar()">Exportar como PNG</button>
+<div id="status">Listo</div>
+
+<iframe id="frame" src="triptico_matetec.html" onload="frameLoaded()"></iframe>
+
+<script>
+let frameReady = false;
+
+function frameLoaded() {
+  frameReady = true;
+  document.getElementById('status').textContent = 'Tríptico cargado ✓';
+}
+
+async function exportar() {
+  const btn = document.querySelector('button');
+  const status = document.getElementById('status');
+
+  if (!frameReady) {
+    status.textContent = 'Espera, cargando el tríptico…';
+    return;
+  }
+
+  btn.disabled = true;
+  status.textContent = '⏳ Renderizando… (puede tardar 5-10 segundos)';
+
+  try {
+    const frameDoc = document.getElementById('frame').contentDocument;
+    const tri = frameDoc.querySelector('.tri');
+
+    // Expandimos el iframe temporalmente para que html2canvas lo vea completo
+    const iframe = document.getElementById('frame');
+    iframe.style.width  = tri.scrollWidth  + 'px';
+    iframe.style.height = tri.scrollHeight + 'px';
+    iframe.style.opacity = '0';
+    iframe.style.position = 'fixed';
+    iframe.style.top = '0';
+    iframe.style.left = '0';
+
+    await new Promise(r => setTimeout(r, 300)); // pequeña pausa para reflow
+
+    const canvas = await html2canvas(tri, {
+      useCORS: true,
+      scale: 2,          // 2× para alta resolución
+      backgroundColor: '#07070A',
+      logging: false,
+      allowTaint: true,
+      foreignObjectRendering: false,
+    });
+
+    // Restaurar
+    iframe.style.width  = '1px';
+    iframe.style.height = '1px';
+    iframe.style.position = 'absolute';
+
+    // Descargar
+    const link = document.createElement('a');
+    link.download = 'triptico_matetec.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    status.textContent = '✅ ¡Imagen descargada!';
+  } catch (err) {
+    status.textContent = '❌ Error: ' + err.message;
+    console.error(err);
+  }
+
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>

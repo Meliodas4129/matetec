@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MateTec — Tríptico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --r:   #FF3A2F;
+  --rv:  #FF6B63;
+  --rbg: rgba(255,58,47,.1);
+  --rbd: rgba(255,58,47,.25);
+  --n0:  #08080C;
+  --n1:  #0F0F14;
+  --n2:  #161620;
+  --n3:  #1E1E2C;
+  --n4:  #282838;
+  --w:   #FFFFFF;
+  --g1:  #EEEEF4;
+  --g2:  #9090A4;
+  --g3:  #50505E;
+  --FD:  'Syne', sans-serif;
+  --FB:  'DM Sans', sans-serif;
+}
+
+body {
+  font-family: var(--FB);
+  background: #07070A;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 12px;
+  gap: 14px;
+}
+
+.hint {
+  font-size: 11.5px;
+  color: #555;
+  background: #111;
+  border: 1px solid #222;
+  padding: 7px 18px;
+  border-radius: 5px;
+  font-family: var(--FB);
+}
+
+/* ═══════════════════════════════════════════
+   TRÍPTICO WRAPPER
+═══════════════════════════════════════════ */
+.tri {
+  display: grid;
+  grid-template-columns: 1fr 1.18fr 1fr;
+  width: 100%;
+  max-width: 1200px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 30px 100px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.05);
+  position: relative;
+}
+
+/* Barra de acento top */
+.tri::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0%, var(--r) 30%, #FF8A80 50%, var(--r) 70%, transparent 100%);
+  z-index: 10;
+}
+
+/* ═══════════════════════════════════════════
+   PANEL IZQUIERDO
+═══════════════════════════════════════════ */
+.izq {
+  background: var(--n2);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Operadores matemáticos decorativos de fondo */
+.izq::after {
+  content: '+ − × ÷';
+  position: absolute;
+  bottom: 60px; right: -20px;
+  font-family: var(--FD);
+  font-size: 80px;
+  font-weight: 800;
+  color: rgba(255,58,47,.04);
+  line-height: 1;
+  letter-spacing: -4px;
+  transform: rotate(-20deg);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Grid de puntos de fondo */
+.izq-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+/* Header */
+.izq-head {
+  padding: 28px 24px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  position: relative;
+  z-index: 1;
+}
+
+/* Glow en esquina top-left */
+.izq-head::before {
+  content: '';
+  position: absolute;
+  top: -50px; left: -50px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(255,58,47,.3) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 10px;
+}
+
+.logo-ico {
+  width: 44px; height: 44px;
+  background: var(--r);
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(255,58,47,.4);
+}
+
+.logo-ico .ti { font-size: 22px; color: white; }
+
+.logo-text {
+  font-family: var(--FD);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--w);
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.logo-text em { color: var(--r); font-style: normal; }
+
+.logo-sub {
+  font-size: 11px;
+  color: var(--g2);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+/* Chips tags */
+.tag-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+
+.tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 3px;
+  display: flex; align-items: center; gap: 4px;
+  background: var(--rbg);
+  border: 1px solid var(--rbd);
+  color: var(--rv);
+}
+
+.tag .ti { font-size: 11px; }
+
+/* Body izq */
+.izq-body {
+  flex: 1;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Etiqueta de sección */
+.sec-lbl {
+  font-family: var(--FD);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--r);
+  margin-bottom: 9px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sec-lbl::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--rbd), transparent);
+}
+
+.sec-lbl .ti { font-size: 12px; }
+
+/* Texto */
+.p { font-size: 12px; line-height: 1.7; color: var(--g1); opacity: .82; }
+
+/* Tarjetas de audiencia */
+.aud-list { display: flex; flex-direction: column; gap: 6px; }
+
+.aud {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  background: var(--n3);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.05);
+}
+
+.aud-ball {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: var(--rbg);
+  border: 1px solid var(--rbd);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.aud-ball .ti { font-size: 14px; color: var(--rv); }
+
+.aud-n { font-size: 12px; font-weight: 600; color: var(--g1); }
+.aud-d { font-size: 10.5px; color: var(--g2); }
+
+/* Plataformas */
+.plat-row { display: flex; gap: 6px; }
+
+.plat {
+  flex: 1;
+  padding: 10px 6px;
+  background: var(--n3);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+}
+
+.plat .ti { font-size: 20px; color: var(--g2); }
+.plat-lbl { font-size: 9.5px; font-weight: 600; color: var(--g2); }
+
+/* Bloque del problema con borde izq */
+.problem-block {
+  border-left: 2px solid var(--r);
+  padding-left: 12px;
+}
+
+/* Footer izq */
+.izq-foot {
+  padding: 11px 24px;
+  background: rgba(255,58,47,.07);
+  border-top: 1px solid var(--rbd);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--rv);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+
+/* ═══════════════════════════════════════════
+   PANEL CENTRAL
+═══════════════════════════════════════════ */
+.cen {
+  background: var(--n1);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(255,255,255,.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glow rojo central */
+.cen::before {
+  content: '';
+  position: absolute;
+  top: -100px; left: 50%;
+  transform: translateX(-50%);
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(255,58,47,.18) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* Texto enorme de fondo */
+.cen-bg-text {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--FD);
+  font-size: 220px;
+  font-weight: 800;
+  color: rgba(255,58,47,.035);
+  letter-spacing: -12px;
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* HERO (texto + mockup teléfono) */
+.hero {
+  padding: 28px 24px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-text { flex: 1; }
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--r);
+  color: white;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 3px;
+  margin-bottom: 12px;
+}
+
+.hero-h {
+  font-family: var(--FD);
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--w);
+  line-height: 1.05;
+  letter-spacing: -1.5px;
+  margin-bottom: 9px;
+}
+
+.hero-h em { color: var(--r); font-style: normal; }
+
+.hero-p {
+  font-size: 11.5px;
+  color: var(--g2);
+  line-height: 1.6;
+}
+
+/* ── MOCKUP TELÉFONO ── */
+.phone {
+  width: 112px;
+  flex-shrink: 0;
+  background: var(--n3);
+  border-radius: 20px;
+  border: 1.5px solid rgba(255,255,255,.12);
+  overflow: hidden;
+  box-shadow:
+    0 0 30px rgba(255,58,47,.12),
+    0 20px 40px rgba(0,0,0,.5),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.ph-notch {
+  background: var(--n4);
+  height: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 5px;
+}
+
+.ph-notch-bar {
+  width: 36px; height: 3px;
+  background: rgba(255,255,255,.12);
+  border-radius: 2px;
+}
+
+.ph-header {
+  background: var(--r);
+  padding: 8px 10px 7px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ph-header-ico {
+  width: 18px; height: 18px;
+  background: rgba(255,255,255,.2);
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.ph-header-ico .ti { font-size: 10px; color: white; }
+
+.ph-title { font-family: var(--FD); font-size: 11px; font-weight: 700; color: white; }
+
+.ph-body { padding: 8px 8px 6px; display: flex; flex-direction: column; gap: 5px; }
+
+.ph-card {
+  padding: 6px 8px;
+  background: var(--n4);
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,.06);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ph-card-ico {
+  width: 20px; height: 20px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.ph-card-ico .ti { font-size: 10px; }
+
+.ph-card-name { font-size: 9px; font-weight: 600; color: var(--g1); flex: 1; }
+
+.ph-check {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px;
+}
+
+.ok  { background: rgba(0,230,118,.15); }
+.ok  .ti  { color: #00E676; }
+.lk  { background: rgba(255,255,255,.07); }
+.lk  .ti  { color: var(--g3); }
+
+.ph-footer {
+  background: var(--n4);
+  padding: 6px 8px;
+  border-top: 1px solid rgba(255,255,255,.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ph-pts {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 600; color: #FFD600;
+}
+
+.ph-pts .ti { font-size: 10px; }
+
+.ph-streak {
+  display: flex; align-items: center; gap: 3px;
+  font-size: 9px; font-weight: 600; color: #FF8A80;
+}
+
+/* Stats strip */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  position: relative;
+  z-index: 1;
+}
+
+.stat {
+  padding: 10px 6px;
+  text-align: center;
+  border-right: 1px solid rgba(255,255,255,.06);
+}
+
+.stat:last-child { border-right: none; }
+
+.stat-n {
+  font-family: var(--FD);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--r);
+  line-height: 1;
+}
+
+.stat-l {
+  font-size: 9px;
+  color: var(--g2);
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* Features 2 columnas */
+.cen-body {
+  flex: 1;
+  padding: 14px 22px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  position: relative;
+  z-index: 1;
+}
+
+.ft {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  background: var(--n3);
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,.05);
+  transition: border-color .2s;
+}
+
+.ft:hover { border-color: var(--rbd); }
+
+.ft-ico {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  background: var(--rbg);
+  border: 1px solid var(--rbd);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.ft-ico .ti { font-size: 14px; color: var(--rv); }
+.ft-t { font-size: 11px; font-weight: 600; color: var(--g1); margin-bottom: 2px; }
+.ft-d { font-size: 10px; color: var(--g2); line-height: 1.4; }
+
+/* Footer centro tech badges */
+.cen-foot {
+  padding: 10px 22px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+}
+
+.tbadge {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--g2);
+  background: var(--n3);
+  border: 1px solid rgba(255,255,255,.07);
+  padding: 3px 9px;
+  border-radius: 4px;
+  display: flex; align-items: center; gap: 4px;
+}
+
+.tbadge .ti { font-size: 11px; }
+
+
+/* ═══════════════════════════════════════════
+   PANEL DERECHO
+═══════════════════════════════════════════ */
+.der {
+  background: var(--n2);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Grid de puntos de fondo */
+.der::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+/* Glow corner top-right */
+.der::after {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(255,58,47,.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.der-head {
+  padding: 24px 24px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  position: relative;
+  z-index: 1;
+}
+
+.der-title {
+  font-family: var(--FD);
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--w);
+  letter-spacing: -.5px;
+  margin-bottom: 2px;
+}
+
+.der-sub { font-size: 11px; color: var(--g2); }
+
+.der-body {
+  flex: 1;
+  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Tech stack con barra de color */
+.tech-list { display: flex; flex-direction: column; gap: 6px; }
+
+.tech {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  background: var(--n3);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.05);
+  border-left: 2px solid var(--r);
+}
+
+.tech .ti { font-size: 16px; color: var(--rv); flex-shrink: 0; }
+.tech-n { font-size: 11.5px; font-weight: 600; color: var(--g1); }
+.tech-d { font-size: 10px; color: var(--g2); }
+
+/* Timeline SCRUM */
+.timeline { position: relative; padding-left: 18px; display: flex; flex-direction: column; gap: 0; }
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px; top: 8px; bottom: 8px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--r), rgba(255,58,47,.2));
+}
+
+.tl-item {
+  position: relative;
+  padding: 0 0 12px 14px;
+}
+
+.tl-item:last-child { padding-bottom: 0; }
+
+.tl-dot {
+  position: absolute;
+  left: -12px; top: 3px;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: var(--r);
+  border: 2px solid var(--n2);
+  box-shadow: 0 0 8px rgba(255,58,47,.5);
+}
+
+.tl-label {
+  font-family: var(--FD);
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--r);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.tl-desc {
+  font-size: 11px;
+  color: var(--g1);
+  line-height: 1.4;
+  opacity: .8;
+}
+
+/* Métricas en grid 2x2 */
+.met-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.met {
+  padding: 10px 12px;
+  background: var(--n3);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Acento de esquina */
+.met::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 28px; height: 28px;
+  background: var(--rbg);
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+}
+
+.met-v {
+  font-family: var(--FD);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--w);
+  line-height: 1;
+}
+
+.met-v span { color: var(--r); }
+.met-l { font-size: 10px; color: var(--g2); margin-top: 3px; }
+
+/* Contacto */
+.contact {
+  padding: 11px 13px;
+  background: var(--n3);
+  border-radius: 9px;
+  border: 1px solid rgba(255,255,255,.06);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contact-ico {
+  width: 38px; height: 38px;
+  background: var(--r);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 16px rgba(255,58,47,.3);
+}
+
+.contact-ico .ti { font-size: 18px; color: white; }
+.ci { font-size: 11px; font-weight: 600; color: var(--g1); line-height: 1.35; }
+.cm { font-size: 10.5px; color: var(--rv); margin-top: 2px; }
+
+/* Footer der */
+.der-foot {
+  padding: 11px 24px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  font-size: 10px;
+  color: var(--g3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  z-index: 1;
+}
+
+.der-foot span { color: var(--r); }
+
+/* ── Print ─────────────────────────── */
+@media print {
+  body { background: none; padding: 0; }
+  .hint { display: none; }
+  .tri  { box-shadow: none; max-width: 100%; }
+}
+</style>
+</head>
+<body>
+
+  
+<div class="tri">
+
+  <!-- ══════════════════════════════════
+       PANEL IZQUIERDO
+  ══════════════════════════════════ -->
+  <div class="izq">
+    <div class="izq-dots"></div>
+
+    <div class="izq-head">
+      <div class="logo-wrap">
+        <div class="logo-ico"><i class="ti ti-math" aria-hidden="true"></i></div>
+        <div>
+          <div class="logo-text">Mate<em>Tec</em></div>
+        </div>
+      </div>
+      <div class="logo-sub">Plataforma educativa adaptativa<br>con inteligencia artificial</div>
+      <div class="tag-row">
+        <div class="tag"><i class="ti ti-brain" aria-hidden="true"></i>IA adaptativa</div>
+        <div class="tag"><i class="ti ti-device-mobile" aria-hidden="true"></i>Multiplataforma</div>
+        <div class="tag"><i class="ti ti-wifi-off" aria-hidden="true"></i>Offline-first</div>
+      </div>
+    </div>
+
+    <div class="izq-body">
+
+      <div>
+        <div class="sec-lbl"><i class="ti ti-info-circle" aria-hidden="true"></i>¿Qué es?</div>
+        <p class="p">
+          MateTec es una aplicación educativa de matemáticas para nivel primaria que
+          usa <strong style="color:var(--g1);opacity:1">inteligencia artificial</strong>
+          para adaptar el contenido al nivel real de cada alumno, haciendo el
+          aprendizaje más efectivo, dinámico y motivador.
+        </p>
+      </div>
+
+      <div>
+        <div class="sec-lbl"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Problema</div>
+        <div class="problem-block">
+          <p class="p">
+            Gran parte de los alumnos de primaria presenta rezago en matemáticas.
+            Los métodos tradicionales no se adaptan al ritmo individual,
+            generando frustración y abandono escolar.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl"><i class="ti ti-users" aria-hidden="true"></i>Usuarios</div>
+        <div class="aud-list">
+          <div class="aud">
+            <div class="aud-ball"><i class="ti ti-school" aria-hidden="true"></i></div>
+            <div>
+              <div class="aud-n">Alumnos</div>
+              <div class="aud-d">1° a 6° de primaria</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-lbl"><i class="ti ti-device-mobile" aria-hidden="true"></i>Disponible en</div>
+        <div class="plat-row">
+          <div class="plat">
+            <i class="ti ti-brand-android" aria-hidden="true"></i>
+            <div class="plat-lbl">Android</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="izq-foot">
+      <i class="ti ti-git-branch" aria-hidden="true"></i>
+      Proyecto SCRUM · 4 Sprints · Instituto Tecnológico de Tepic
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       PANEL CENTRAL
+  ══════════════════════════════════ -->
+  <div class="cen">
+    <div class="cen-bg-text" aria-hidden="true">MT</div>
+
+    <div class="hero">
+      <div class="hero-text">
+        <div class="hero-badge"><i class="ti ti-sparkles" aria-hidden="true" style="font-size:10px;"></i> App Educativa</div>
+        <div class="hero-h">Aprende.<br><em>Practica.</em><br>Evoluciona.</div>
+        <p class="hero-p">Matemáticas adaptadas al nivel<br>de cada alumno, en tiempo real.</p>
+      </div>
+
+      <!-- MOCKUP TELÉFONO -->
+      <div class="phone" role="img" aria-label="Mockup de la aplicación MateTec">
+        <div class="ph-notch"><div class="ph-notch-bar"></div></div>
+
+        <div class="ph-header">
+          <div class="ph-header-ico"><i class="ti ti-math" aria-hidden="true"></i></div>
+          <div class="ph-title">MateTec</div>
+        </div>
+
+        <div class="ph-body">
+          <div class="ph-card">
+            <div class="ph-card-ico" style="background:rgba(66,165,245,.15);">
+              <i class="ti ti-plus" aria-hidden="true" style="color:#42A5F5;"></i>
+            </div>
+            <div class="ph-card-name">Sumas</div>
+            <div class="ph-check ok"><i class="ti ti-check" aria-hidden="true"></i></div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-card-ico" style="background:rgba(239,83,80,.15);">
+              <i class="ti ti-minus" aria-hidden="true" style="color:#EF5350;"></i>
+            </div>
+            <div class="ph-card-name">Restas</div>
+            <div class="ph-check ok"><i class="ti ti-check" aria-hidden="true"></i></div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-card-ico" style="background:rgba(102,187,106,.15);">
+              <i class="ti ti-x" aria-hidden="true" style="color:#66BB6A;"></i>
+            </div>
+            <div class="ph-card-name">Multiplicación</div>
+            <div class="ph-check lk"><i class="ti ti-lock" aria-hidden="true"></i></div>
+          </div>
+          <div class="ph-card">
+            <div class="ph-card-ico" style="background:rgba(255,167,38,.15);">
+              <i class="ti ti-divide" aria-hidden="true" style="color:#FFA726;"></i>
+            </div>
+            <div class="ph-card-name">División</div>
+            <div class="ph-check lk"><i class="ti ti-lock" aria-hidden="true"></i></div>
+          </div>
+        </div>
+
+        <div class="ph-footer">
+          <div class="ph-pts"><i class="ti ti-star" aria-hidden="true"></i>320 pts</div>
+          <div class="ph-streak"><i class="ti ti-flame" aria-hidden="true"></i>7 días</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats strip -->
+    <div class="stats-strip">
+      <div class="stat">
+        <div class="stat-n">+15</div>
+        <div class="stat-l">Pantallas</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n">4</div>
+        <div class="stat-l">Sprints</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n">8</div>
+        <div class="stat-l">Features ML</div>
+      </div>
+      <div class="stat">
+        <div class="stat-n">3</div>
+        <div class="stat-l">Tipo emails</div>
+      </div>
+    </div>
+
+    <!-- Features 2 columnas -->
+    <div class="cen-body">
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-brain" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">IA adaptativa</div>
+          <div class="ft-d">RandomForestClassifier actualiza el nivel por partida.</div>
+        </div>
+      </div>
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-clipboard-check" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">Diagnóstico inicial</div>
+          <div class="ft-d">16 preguntas calibran el punto de partida.</div>
+        </div>
+      </div>
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-math" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">Práctica por temas</div>
+          <div class="ft-d">3 niveles de dificultad + modo contrarreloj.</div>
+        </div>
+      </div>
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-trophy" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">Evaluaciones</div>
+          <div class="ft-d">Desbloqueo progresivo tras 5 partidas.</div>
+        </div>
+      </div>
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-flame" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">Retos diarios</div>
+          <div class="ft-d">Misiones renovadas cada 24 h con racha.</div>
+        </div>
+      </div>
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-mail" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">Reportes por correo</div>
+          <div class="ft-d">Resumen semanal con diseño MateTec.</div>
+        </div>
+      </div>
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-paint" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">Perfil personalizable</div>
+          <div class="ft-d">Color de app, avatar y progreso en vivo.</div>
+        </div>
+      </div>
+      <div class="ft">
+        <div class="ft-ico"><i class="ti ti-shield" aria-hidden="true"></i></div>
+        <div>
+          <div class="ft-t">Panel administrador</div>
+          <div class="ft-d">Gestión de usuarios y estadísticas globales.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cen-foot">
+      <div class="tbadge"><i class="ti ti-brand-flutter" aria-hidden="true"></i>Flutter</div>
+      <div class="tbadge"><i class="ti ti-brand-firebase" aria-hidden="true"></i>Firebase</div>
+      <div class="tbadge"><i class="ti ti-brand-python" aria-hidden="true"></i>Flask</div>
+      <div class="tbadge"><i class="ti ti-brain" aria-hidden="true"></i>scikit-learn</div>
+      <div class="tbadge"><i class="ti ti-mail" aria-hidden="true"></i>SMTP</div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       PANEL DERECHO
+  ══════════════════════════════════ -->
+  <div class="der">
+    <div class="der-head">
+      <div class="der-title">Stack &amp; Metodología</div>
+      <div class="der-sub">Tecnología que potencia MateTec</div>
+    </div>
+
+    <div class="der-body">
+
+      <!-- Tech -->
+      <div>
+        <div class="sec-lbl" style="color:var(--r)"><i class="ti ti-stack-2" aria-hidden="true"></i>Stack tecnológico</div>
+        <div class="tech-list">
+          <div class="tech">
+            <i class="ti ti-device-mobile-code" aria-hidden="true"></i>
+            <div>
+              <div class="tech-n">Flutter / Dart</div>
+              <div class="tech-d">Interfaz nativa Android, iOS y Web</div>
+            </div>
+          </div>
+          <div class="tech">
+            <i class="ti ti-brand-firebase" aria-hidden="true"></i>
+            <div>
+              <div class="tech-n">Firebase</div>
+              <div class="tech-d">Auth, Firestore, offline, Google Sign-In</div>
+            </div>
+          </div>
+          <div class="tech">
+            <i class="ti ti-brand-python" aria-hidden="true"></i>
+            <div>
+              <div class="tech-n">Python · Flask</div>
+              <div class="tech-d">Servidor IA + correos con diseño propio</div>
+            </div>
+          </div>
+          <div class="tech">
+            <i class="ti ti-brain" aria-hidden="true"></i>
+            <div>
+              <div class="tech-n">scikit-learn (ML)</div>
+              <div class="tech-d">RandomForestClassifier · 8 features</div>
+            </div>
+          </div>
+          <div class="tech">
+            <i class="ti ti-mail-forward" aria-hidden="true"></i>
+            <div>
+              <div class="tech-n">Gmail SMTP</div>
+              <div class="tech-d">Verificación, recuperación y reportes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline Sprints -->
+      <div>
+        <div class="sec-lbl" style="color:var(--r)"><i class="ti ti-checklist" aria-hidden="true"></i>Desarrollo SCRUM</div>
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-label">Sprint 1</div>
+            <div class="tl-desc">Auth, registro y diagnóstico inicial con IA</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-label">Sprint 2</div>
+            <div class="tl-desc">Práctica, IA adaptativa y evaluaciones progresivas</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-label">Sprint 3</div>
+            <div class="tl-desc">Retos diarios, personalización y panel admin</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-label">Sprint 4</div>
+            <div class="tl-desc">Correos personalizados, reportes y mejora ML</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métricas -->
+      <div>
+        <div class="sec-lbl" style="color:var(--r)"><i class="ti ti-chart-bar" aria-hidden="true"></i>Métricas</div>
+        <div class="met-grid">
+          <div class="met">
+            <div class="met-v"><span>+</span>15</div>
+            <div class="met-l">Pantallas</div>
+          </div>
+          <div class="met">
+            <div class="met-v">4</div>
+            <div class="met-l">Sprints SCRUM</div>
+          </div>
+          <div class="met">
+            <div class="met-v">3</div>
+            <div class="met-l">Niveles dificultad</div>
+          </div>
+          <div class="met">
+            <div class="met-v">8</div>
+            <div class="met-l">Features ML</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contacto -->
+      <div class="contact">
+        <div class="contact-ico"><i class="ti ti-school" aria-hidden="true"></i></div>
+        <div>
+          <div class="ci">Instituto Tecnológico de Tepic<br>Ing. en Sistemas Computacionales</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="der-foot">
+      <span style="color:var(--g3);">© 2025 MateTec</span>
+      <span>Todos los derechos reservados</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Botón flotante de exportar ── -->
+<div id="export-btn" style="
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+">
+  <div id="export-status" style="
+    display: none;
+    background: #1E1E2C;
+    border: 1px solid rgba(255,58,47,.3);
+    color: #ccc;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 8px;
+  "></div>
+  <button onclick="exportarPNG()" style="
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 22px;
+    background: #FF3A2F;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 24px rgba(255,58,47,.5);
+    font-family: inherit;
+  ">
+    <i class="ti ti-camera"></i> Exportar PNG
+  </button>
+</div>
+
+<script>
+async function exportarPNG() {
+  const btn   = document.querySelector('#export-btn button');
+  const stat  = document.getElementById('export-status');
+  const tri   = document.querySelector('.tri');
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Renderizando…';
+  stat.style.display = 'block';
+  stat.textContent = 'Generando imagen en alta resolución…';
+
+  // Ocultar el botón de exportar del canvas
+  document.getElementById('export-btn').style.display = 'none';
+
+  try {
+    // Dimensiones explícitas para evitar el error de canvas 0×0
+    const w = tri.offsetWidth;
+    const h = tri.offsetHeight;
+
+    const canvas = await html2canvas(tri, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#07070A',
+      logging: false,
+      width: w,
+      height: h,
+      windowWidth: w,
+      windowHeight: h,
+      onclone: (doc) => {
+        // Reemplazar radial-gradient en background-image (dot grids)
+        // html2canvas falla con estos patrones → los eliminamos del clon
+        doc.querySelectorAll('*').forEach(el => {
+          const cs = window.getComputedStyle(el);
+          const bg = cs.backgroundImage || '';
+          if (bg.includes('radial-gradient') && bg.includes('1px')) {
+            el.style.backgroundImage = 'none';
+          }
+        });
+        // Quitar border-radius del tri para captura limpia
+        const ct = doc.querySelector('.tri');
+        if (ct) ct.style.borderRadius = '0';
+        // Asegurar que el pseudo-elemento ::before (barra top) no cause problema
+        const style = doc.createElement('style');
+        style.textContent = `.tri::before { display: none !important; }`;
+        doc.head.appendChild(style);
+      }
+    });
+
+    const link = document.createElement('a');
+    link.download = 'triptico_matetec.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    stat.textContent = '✅ Descargado como triptico_matetec.png';
+  } catch (err) {
+    stat.textContent = '❌ Error: ' + err.message;
+  }
+
+  document.getElementById('export-btn').style.display = 'flex';
+  btn.disabled = false;
+  btn.innerHTML = '<i class="ti ti-camera"></i> Exportar PNG';
+}
+</script>
+</body>
+</html>

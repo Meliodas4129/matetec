@@ -154,7 +154,7 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
           .child('perfiles/${user.uid}/foto.jpg');
 
       final bytes = await photo.readAsBytes();
-      final uploadTask = await storageRef.putData(bytes);
+      await storageRef.putData(bytes);
 
       // Obtener URL de descarga
       final url = await storageRef.getDownloadURL();

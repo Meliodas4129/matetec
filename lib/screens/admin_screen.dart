@@ -64,18 +64,18 @@ class _AdminScreenState extends State<AdminScreen> {
               onChanged: (v) => setState(() => _busqueda = v.toLowerCase()),
               decoration: InputDecoration(
                 hintText: 'Buscar por nombre o correo…',
-                hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
-                prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey.shade500),
+                hintStyle: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                prefixIcon: Icon(Icons.search, size: 20, color: AppColors.textSecondary),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppColors.surfaceVariant,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
+                  borderSide: BorderSide(color: AppColors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey.shade200),
+                  borderSide: BorderSide(color: AppColors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -136,7 +136,7 @@ class _AdminScreenState extends State<AdminScreen> {
                           '${docs.length} usuario${docs.length != 1 ? 's' : ''}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade500,
+                            color: AppColors.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -194,10 +194,10 @@ class _UserCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: bloqueado
-              ? Colors.grey.shade300
+              ? AppColors.border
               : isAdmin
                   ? AppColors.primary.withValues(alpha: 0.4)
-                  : Colors.grey.shade200,
+                  : AppColors.border,
         ),
       ),
       child: Row(
@@ -260,7 +260,7 @@ class _UserCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   email,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 6),
                 // Nivel AI + grado escolar
@@ -302,18 +302,18 @@ class _UserCard extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text('Bloqueado',
                       style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade600)),
+                          color: AppColors.textSecondary)),
                 ),
               PopupMenuButton<String>(
                 icon:
-                    Icon(Icons.more_vert, size: 18, color: Colors.grey.shade400),
+                    Icon(Icons.more_vert, size: 18, color: AppColors.textMuted),
                 onSelected: (value) => _onAction(context, value),
                 itemBuilder: (_) => [
                   PopupMenuItem(
@@ -466,7 +466,7 @@ class _Stat extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           '$value $label',
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
         ),
       ],
     );

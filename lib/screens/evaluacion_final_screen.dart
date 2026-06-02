@@ -10,7 +10,7 @@ import '../services/sync_service.dart';
 // Modelo de pregunta de evaluación
 // ─────────────────────────────────────────────────────────────────────────────
 class _Pregunta {
-  final String expresion;   // e.g. "12 + 7 + 5 = ?"
+  final String expresion; // e.g. "12 + 7 + 5 = ?"
   final int respuesta;
   final List<String> opciones; // 4 opciones mezcladas
 
@@ -55,7 +55,7 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
 
   late final List<_Pregunta> _preguntas;
 
-  int _indice = 0;          // pregunta actual
+  int _indice = 0; // pregunta actual
   int _aciertos = 0;
   String? _seleccionada;
   bool _respondido = false;
@@ -65,40 +65,58 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
   // ── Colores por tema ───────────────────────────────────────────────────────
   Color get _color {
     switch (widget.tema) {
-      case 'restas':         return AppColors.temaRestas;
-      case 'multiplicacion': return AppColors.temaMult;
-      case 'division':       return AppColors.temaDiv;
-      default:               return AppColors.temaSumas;
+      case 'restas':
+        return AppColors.temaRestas;
+      case 'multiplicacion':
+        return AppColors.temaMult;
+      case 'division':
+        return AppColors.temaDiv;
+      default:
+        return AppColors.temaSumas;
     }
   }
 
   String get _nombreTema {
     switch (widget.tema) {
-      case 'restas':         return 'Restas';
-      case 'multiplicacion': return 'Multiplicación';
-      case 'division':       return 'División';
-      default:               return 'Sumas';
+      case 'restas':
+        return 'Restas';
+      case 'multiplicacion':
+        return 'Multiplicación';
+      case 'division':
+        return 'División';
+      default:
+        return 'Sumas';
     }
   }
 
   String get _nombreSiguiente {
     switch (widget.siguienteTema) {
-      case 'restas':         return 'Restas';
-      case 'multiplicacion': return 'Multiplicación';
-      case 'division':       return 'División';
-      default:               return '';
+      case 'restas':
+        return 'Restas';
+      case 'multiplicacion':
+        return 'Multiplicación';
+      case 'division':
+        return 'División';
+      default:
+        return '';
     }
   }
 
   // ── Configuración por grado ────────────────────────────────────────────────
   ({int maxNum, int operandos}) get _config {
     switch (widget.gradoNum) {
-      case 1:  return (maxNum: 10,  operandos: 2);
-      case 2:  return (maxNum: 20,  operandos: 3);
-      case 3:  return (maxNum: 50,  operandos: 3);
-      case 4:  return (maxNum: 100, operandos: 4);
-      case 5:  return (maxNum: 200, operandos: 4);
-      default: return (maxNum: 500, operandos: 4);
+      case 1:
+        return (maxNum: 10, operandos: 2);
+      case 2:
+        return (maxNum: 20, operandos: 3);
+      case 3:
+        return (maxNum: 50, operandos: 3);
+      case 4:
+        return (maxNum: 100, operandos: 4);
+      case 5:
+        return (maxNum: 200, operandos: 4);
+      default:
+        return (maxNum: 500, operandos: 4);
     }
   }
 
@@ -147,7 +165,8 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
     int acum = primero;
     for (int i = 1; i < numOperandos; i++) {
       if (acum <= 1) break;
-      final sig = _random.nextInt((acum - 1).clamp(1, maxNum ~/ numOperandos)) + 1;
+      final sig =
+          _random.nextInt((acum - 1).clamp(1, maxNum ~/ numOperandos)) + 1;
       ops.add(sig);
       acum -= sig;
     }
@@ -163,7 +182,9 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
 
   _Pregunta _generarMultiplicacion(int numOperandos) {
     // Factores pequeños para que el resultado sea manejable
-    final maxFactor = widget.gradoNum <= 2 ? 9 : (widget.gradoNum <= 4 ? 12 : 15);
+    final maxFactor = widget.gradoNum <= 2
+        ? 9
+        : (widget.gradoNum <= 4 ? 12 : 15);
     final cantOps = numOperandos.clamp(2, 3); // máx 3 para mult
     final ops = List.generate(cantOps, (_) => _random.nextInt(maxFactor) + 1);
     final respuesta = ops.reduce((a, b) => a * b);
@@ -239,7 +260,7 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
   Future<void> _guardarResultado() async {
     if (_user == null) return;
     final aprobado = _aciertos / _totalPreguntas >= _umbralAprobado;
-    final ref = FirebaseFirestore.instance.collection('users').doc(_user!.uid);
+    final ref = FirebaseFirestore.instance.collection('users').doc(_user.uid);
 
     try {
       setState(() => _guardando = true);
@@ -250,17 +271,20 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
           'temas.${widget.tema}.eval_aprobada': true,
         };
         if (widget.siguienteTema.isNotEmpty) {
-          updates['temas_desbloqueados'] =
-              FieldValue.arrayUnion([widget.siguienteTema]);
+          updates['temas_desbloqueados'] = FieldValue.arrayUnion([
+            widget.siguienteTema,
+          ]);
           updates['temas.${widget.siguienteTema}.eval_desde_intentos'] = 10;
         }
         await SyncService.wrap(() => ref.update(updates));
       } else {
         // Bloquear 5 prácticas más antes del siguiente intento
-        await SyncService.wrap(() => ref.update({
-          'temas.${widget.tema}.eval_desde_intentos':
-              widget.intentosActuales + 5,
-        }));
+        await SyncService.wrap(
+          () => ref.update({
+            'temas.${widget.tema}.eval_desde_intentos':
+                widget.intentosActuales + 5,
+          }),
+        );
       }
     } catch (e) {
       debugPrint('Error guardando evaluación: $e');
@@ -293,8 +317,11 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
         automaticallyImplyLeading: false,
         title: Row(
           children: [
-            const Icon(Icons.emoji_events_rounded,
-                color: Colors.white, size: 20),
+            const Icon(
+              Icons.emoji_events_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
             const SizedBox(width: 8),
             Text(
               'Evaluación · $_nombreTema',
@@ -312,8 +339,10 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
               padding: const EdgeInsets.only(right: 12),
               child: Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
@@ -333,9 +362,7 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
-        child: _terminado
-            ? _buildResultados()
-            : _buildPregunta(),
+        child: _terminado ? _buildResultados() : _buildPregunta(),
       ),
     );
   }
@@ -368,8 +395,11 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _chip(Icons.check_circle_outline, '$_aciertos aciertos',
-                        Colors.green),
+                    _chip(
+                      Icons.check_circle_outline,
+                      '$_aciertos aciertos',
+                      Colors.green,
+                    ),
                     const SizedBox(width: 12),
                     _chip(
                       Icons.cancel_outlined,
@@ -385,12 +415,16 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                      vertical: 36, horizontal: 20),
+                    vertical: 36,
+                    horizontal: 20,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                        color: _color.withValues(alpha: 0.35), width: 1.5),
+                      color: _color.withValues(alpha: 0.35),
+                      width: 1.5,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: _color.withValues(alpha: 0.08),
@@ -491,8 +525,9 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: (aprobado ? Colors.amber : Colors.grey)
-                  .withValues(alpha: 0.15),
+              color: (aprobado ? Colors.amber : Colors.grey).withValues(
+                alpha: 0.15,
+              ),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -515,11 +550,11 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
           Text(
             aprobado
                 ? (widget.siguienteTema.isNotEmpty
-                    ? '¡Desbloqueaste $_nombreSiguiente! 🎉'
-                    : '¡Completaste todos los temas!')
+                      ? '¡Desbloqueaste $_nombreSiguiente! 🎉'
+                      : '¡Completaste todos los temas!')
                 : 'Necesitas 5 prácticas más antes del próximo intento',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
 
           const SizedBox(height: 32),
@@ -546,8 +581,7 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '$_aciertos de $_totalPreguntas correctas',
-                  style:
-                      const TextStyle(fontSize: 14, color: Colors.grey),
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
                 ClipRRect(
@@ -555,7 +589,7 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
                   child: LinearProgressIndicator(
                     value: _aciertos / _totalPreguntas,
                     minHeight: 12,
-                    backgroundColor: Colors.grey.shade200,
+                    backgroundColor: AppColors.border,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       aprobado ? Colors.green : Colors.red,
                     ),
@@ -564,7 +598,10 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
                 const SizedBox(height: 8),
                 Text(
                   'Mínimo para aprobar: 80% (24/30)',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -620,7 +657,9 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
               child: Text(
                 aprobado ? 'Continuar' : 'Volver a practicar',
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
@@ -644,7 +683,10 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
           Text(
             texto,
             style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600, color: color),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -656,8 +698,10 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('¿Abandonar la evaluación?',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+        title: const Text(
+          '¿Abandonar la evaluación?',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
         content: const Text(
           'Si sales ahora, perderás tu progreso en esta evaluación y no contará.',
           style: TextStyle(fontSize: 13, color: Colors.grey),
@@ -665,15 +709,18 @@ class _EvaluacionFinalScreenState extends State<EvaluacionFinalScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Continuar',
-                style: TextStyle(color: Colors.grey)),
+            child: const Text(
+              'Continuar',
+              style: TextStyle(color: Colors.grey),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style:
-                TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Salir',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text(
+              'Salir',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
         ],
       ),
@@ -703,7 +750,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         children: [
@@ -712,11 +759,13 @@ class _StatCard extends StatelessWidget {
           Text(
             valor,
             style: TextStyle(
-                fontSize: 26, fontWeight: FontWeight.w800, color: color),
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),
     );

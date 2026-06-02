@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'firebase_options.dart';
 import 'services/local_storage_service.dart';
+import 'services/notification_service.dart';
 import 'services/sync_service.dart';
 import 'services/theme_service.dart';
 import 'theme/app_theme.dart';
@@ -34,6 +35,21 @@ void main() async {
 
   // ── Inicializar preferencia de color de tema ──────────────────────────────
   await ThemeService.init();
+
+  // ── Inicializar notificaciones locales ────────────────────────────────────
+  await NotificationService.init();
+  // Reprogramar notificaciones con la configuración guardada
+  final notifCfg = await NotificationService.leerConfig();
+  if (notifCfg.activo) {
+    await NotificationService.programarRecordatorioDiario(
+      hora:    notifCfg.hora,
+      minuto:  notifCfg.minuto,
+      activo:  true,
+    );
+  }
+  if (notifCfg.rachaActivo) {
+    await NotificationService.programarAlertaRacha();
+  }
 
   // Manejar resultado de signInWithRedirect (fallback web cuando popup es bloqueado)
   try {
@@ -200,13 +216,13 @@ class AuthWrapper extends StatelessWidget {
             final data = docSnap.data!.data() as Map<String, dynamic>?;
 
             // ✅ Cuenta bloqueada → mostrar pantalla de suspensión
-            if ((data?['bloqueado'] ?? false) as bool) {
+            if ((data?['bloqueado'] as bool?) ?? false) {
               FirebaseAuth.instance.signOut();
               return const _CuentaBloqueadaScreen();
             }
 
-            final grado = (data?['grado'] ?? 'Pendiente') as String;
-            final rol = (data?['rol'] ?? 'estudiante') as String;
+            final grado = (data?['grado'] as String?) ?? 'Pendiente';
+            final rol = (data?['rol'] as String?) ?? 'estudiante';
 
             // Los admins no necesitan diagnóstico → van directo al home
             // Si todavía no hizo el diagnóstico → diagnóstico

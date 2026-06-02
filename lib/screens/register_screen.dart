@@ -383,7 +383,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Expanded(
                   child: Container(
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFAFAFA),
+                      color: AppColors.background,
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(32)),
                     ),
@@ -438,7 +438,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       ? Icons.visibility_outlined
                                       : Icons.visibility_off_outlined,
                                   size: 20,
-                                  color: Colors.grey.shade500,
+                                  color: AppColors.textSecondary,
                                 ),
                                 onPressed: () => setState(
                                     () => _obscurePass = !_obscurePass),
@@ -454,18 +454,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               value: _gradoEscolar,
                               decoration: InputDecoration(
                                 hintText: 'Selecciona tu grado',
-                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                                prefixIcon: Icon(Icons.school_outlined, size: 20, color: Colors.grey.shade500),
+                                hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 14),
+                                prefixIcon: Icon(Icons.school_outlined, size: 20, color: AppColors.textSecondary),
                                 filled: true,
-                                fillColor: Colors.white,
+                                fillColor: AppColors.surfaceVariant,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                  borderSide: BorderSide(color: AppColors.border),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
-                                  borderSide: BorderSide(color: Colors.grey.shade200),
+                                  borderSide: BorderSide(color: AppColors.border),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -522,7 +522,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               children: [
                                 Expanded(
                                     child: Divider(
-                                        color: Colors.grey.shade300)),
+                                        color: AppColors.border)),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 14),
@@ -530,12 +530,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     'o',
                                     style: TextStyle(
                                         fontSize: 13,
-                                        color: Colors.grey.shade500),
+                                        color: AppColors.textSecondary),
                                   ),
                                 ),
                                 Expanded(
                                     child: Divider(
-                                        color: Colors.grey.shade300)),
+                                        color: AppColors.border)),
                               ],
                             ),
 
@@ -559,7 +559,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   '¿Ya tienes cuenta? ',
                                   style: TextStyle(
                                       fontSize: 14,
-                                      color: Colors.grey.shade600),
+                                      color: AppColors.textSecondary),
                                 ),
                                 GestureDetector(
                                   onTap: _loading
@@ -595,7 +595,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF444444),
+          color: AppColors.textSecondary,
         ),
       );
 
@@ -613,23 +613,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
       obscureText: obscure,
       keyboardType: keyboard,
       validator: validator,
-      style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A1A)),
+      style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-        prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade500),
+        hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 14),
+        prefixIcon: Icon(icon, size: 20, color: AppColors.textSecondary),
         suffixIcon: suffix,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surfaceVariant,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -665,9 +665,9 @@ class _GoogleButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF444444),
-          side: BorderSide(color: Colors.grey.shade300, width: 1.5),
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textSecondary,
+          side: BorderSide(color: AppColors.border, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -690,7 +690,7 @@ class _GoogleButton extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF333333)),
+                        color: AppColors.textPrimary),
                   ),
                 ],
               ),
@@ -707,7 +707,7 @@ class _GoogleLogo extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
         color: Colors.white,
       ),
       child: const Center(

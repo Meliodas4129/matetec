@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/ia_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/notification_service.dart';
 import '../services/sync_service.dart';
 import '../theme/app_theme.dart';
 
@@ -30,11 +31,11 @@ extension NivelDificultadX on NivelDificultad {
   String get descripcion {
     switch (this) {
       case NivelDificultad.facil:
-        return 'Números 1-10';
+        return 'Números 1-15 · Opciones separadas';
       case NivelDificultad.normal:
-        return 'Números 1-100';
+        return 'Números 1-50 · Opciones moderadas';
       case NivelDificultad.dificil:
-        return 'Números 1-1000 + Tiempo limitado';
+        return 'Números grandes · 3 operandos · Opciones muy cercanas';
     }
   }
 }
@@ -202,17 +203,27 @@ class _PracticaScreenState extends State<PracticaScreen> {
     }
     // IA adaptativa: se llama UNA vez al terminar la partida (no por respuesta)
     _actualizarNivelConIA();
+    // Cancelar alerta de racha para hoy (el usuario ya practicó)
+    NotificationService.marcarPracticadoHoy();
   }
 
-  // Incrementa el contador de partidas completadas para este tema
+  // Incrementa el contador de partidas completadas para este tema.
+  // Si la dificultad es Difícil, también incrementa partidas_dificil
+  // (que es el requisito para desbloquear la evaluación).
   Future<void> _contarPartida() async {
     if (_user == null) return;
     final tema = widget.tema.name; // 'sumas', 'restas', etc.
     try {
+      final updates = <String, dynamic>{
+        'temas.$tema.partidas': FieldValue.increment(1),
+      };
+      if (widget.nivelDificultad == NivelDificultad.dificil) {
+        updates['temas.$tema.partidas_dificil'] = FieldValue.increment(1);
+      }
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(_user!.uid)
-          .update({'temas.$tema.partidas': FieldValue.increment(1)});
+          .doc(_user.uid)
+          .update(updates);
     } catch (e) {
       debugPrint('Error contando partida: $e');
     }
@@ -238,37 +249,38 @@ class _PracticaScreenState extends State<PracticaScreen> {
       }
 
       final intentosTotales = (data['intentos'] ?? 1) as int;
-      final tiempoTotal     = ((data['tiempo_total'] ?? 0) as num).toDouble();
-      final tiempoPromedio  = tiempoTotal / intentosTotales.clamp(1, 1 << 31);
+      final tiempoTotal = ((data['tiempo_total'] ?? 0) as num).toDouble();
+      final tiempoPromedio = tiempoTotal / intentosTotales.clamp(1, 1 << 31);
 
       // Precisión por tema (0.0 – 1.0)
-      double _precisionTema(String t) {
-        final temaMap = (data['temas'] as Map<String, dynamic>?)?[t]
-            as Map<String, dynamic>?;
+      double precisionTema(String t) {
+        final temaMap =
+            (data['temas'] as Map<String, dynamic>?)?[t]
+                as Map<String, dynamic>?;
         if (temaMap == null) return 0.0;
-        final ac  = (temaMap['aciertos'] ?? 0) as int;
+        final ac = (temaMap['aciertos'] ?? 0) as int;
         final int_ = (temaMap['intentos'] ?? 0) as int;
         if (int_ == 0) return 0.0;
         return ac / int_;
       }
 
       final ia = await IAService.clasificar(
-        aciertos:            (data['aciertos'] ?? 0) as int,
-        errores:             (data['errores']  ?? 0) as int,
-        tiempo:              tiempoPromedio,
-        intentos:            intentosTotales,
-        precisionSumas:      _precisionTema('sumas'),
-        precisionRestas:     _precisionTema('restas'),
-        precisionMult:       _precisionTema('multiplicacion'),
-        precisionDiv:        _precisionTema('division'),
-        temaActual:          tema,
+        aciertos: (data['aciertos'] ?? 0) as int,
+        errores: (data['errores'] ?? 0) as int,
+        tiempo: tiempoPromedio,
+        intentos: intentosTotales,
+        precisionSumas: precisionTema('sumas'),
+        precisionRestas: precisionTema('restas'),
+        precisionMult: precisionTema('multiplicacion'),
+        precisionDiv: precisionTema('division'),
+        temaActual: tema,
       );
 
       final nuevoGrado = (ia['grado'] as num).toInt();
 
       if (LocalStorageService.isGuest || _user == null) {
         await LocalStorageService.updateFields({
-          'grado':     ia['descripcion'],
+          'grado': ia['descripcion'],
           'grado_num': nuevoGrado,
         });
       } else {
@@ -288,7 +300,9 @@ class _PracticaScreenState extends State<PracticaScreen> {
   Future<void> _actualizarRetos() async {
     if (_user == null) return;
     try {
-      final ref = FirebaseFirestore.instance.collection('users').doc(_user!.uid);
+      final ref = FirebaseFirestore.instance
+          .collection('users')
+          .doc(_user!.uid);
       final doc = await ref.get();
       final data = doc.data();
       if (data == null) return;
@@ -347,18 +361,20 @@ class _PracticaScreenState extends State<PracticaScreen> {
       _check('constancia', ejerciciosNuevos >= 25, 30);
 
       // Guardar en Firestore
-      await SyncService.wrap(() => ref.update({
-        'retos_diarios': {
-          'fecha': fechaHoy,
-          'aciertos_mejor_sesion': nuevoMejorAciertos,
-          'precision_mejor_sesion': nuevoMejorPrecision,
-          'ejercicios_hoy': ejerciciosNuevos,
-          'completados': completados,
-          'puntos_retos': puntosNuevos,
-        },
-        if (puntosNuevos > puntosRetosAnt)
-          'puntos': FieldValue.increment(puntosNuevos - puntosRetosAnt),
-      }));
+      await SyncService.wrap(
+        () => ref.update({
+          'retos_diarios': {
+            'fecha': fechaHoy,
+            'aciertos_mejor_sesion': nuevoMejorAciertos,
+            'precision_mejor_sesion': nuevoMejorPrecision,
+            'ejercicios_hoy': ejerciciosNuevos,
+            'completados': completados,
+            'puntos_retos': puntosNuevos,
+          },
+          if (puntosNuevos > puntosRetosAnt)
+            'puntos': FieldValue.increment(puntosNuevos - puntosRetosAnt),
+        }),
+      );
 
       // Mostrar notificación si se desbloqueó un reto nuevo
       final nuevos = completados
@@ -370,18 +386,21 @@ class _PracticaScreenState extends State<PracticaScreen> {
           'punteria': '🎯 Puntería',
           'constancia': '📚 Constancia del día',
         };
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            '¡Reto completado: ${nombres[nuevos.first] ?? nuevos.first}! +pts',
-            style: const TextStyle(fontWeight: FontWeight.w600),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '¡Reto completado: ${nombres[nuevos.first] ?? nuevos.first}! +pts',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: Colors.amber[800],
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.all(12),
           ),
-          backgroundColor: Colors.amber[800],
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.all(12),
-        ));
+        );
       }
     } catch (e) {
       debugPrint('Error actualizando retos: $e');
@@ -394,17 +413,22 @@ class _PracticaScreenState extends State<PracticaScreen> {
 
     try {
       final ahora = DateTime.now();
-      final hoy   = DateTime(ahora.year, ahora.month, ahora.day);
+      final hoy = DateTime(ahora.year, ahora.month, ahora.day);
 
       if (LocalStorageService.isGuest) {
         // ── Invitado: leer/escribir en local ─────────────────────────────
         final data = LocalStorageService.getData();
         final ultimaStr = data['ultimaPractica'] as String?;
-        final DateTime? ultimaDt =
-            ultimaStr != null ? DateTime.tryParse(ultimaStr) : null;
+        final DateTime? ultimaDt = ultimaStr != null
+            ? DateTime.tryParse(ultimaStr)
+            : null;
 
         if (ultimaDt != null) {
-          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          final ultimoDia = DateTime(
+            ultimaDt.year,
+            ultimaDt.month,
+            ultimaDt.day,
+          );
           if (hoy.difference(ultimoDia).inDays == 0) {
             _rachaActualizadaHoy = true;
             return;
@@ -415,7 +439,11 @@ class _PracticaScreenState extends State<PracticaScreen> {
         if (ultimaDt == null) {
           nuevaRacha = 1;
         } else {
-          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          final ultimoDia = DateTime(
+            ultimaDt.year,
+            ultimaDt.month,
+            ultimaDt.day,
+          );
           final dias = hoy.difference(ultimoDia).inDays;
           nuevaRacha = dias == 1 ? ((data['racha'] ?? 0) as int) + 1 : 1;
         }
@@ -428,16 +456,21 @@ class _PracticaScreenState extends State<PracticaScreen> {
       } else {
         // ── Con cuenta: leer/escribir en Firestore ────────────────────────
         if (ref == null) return;
-        final doc  = await ref.get();
+        final doc = await ref.get();
         final data = doc.data() as Map<String, dynamic>?;
         if (data == null) return;
 
         final ultimaRaw = data['ultimaPractica'];
-        final DateTime? ultimaDt =
-            ultimaRaw is Timestamp ? ultimaRaw.toDate() : null;
+        final DateTime? ultimaDt = ultimaRaw is Timestamp
+            ? ultimaRaw.toDate()
+            : null;
 
         if (ultimaDt != null) {
-          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          final ultimoDia = DateTime(
+            ultimaDt.year,
+            ultimaDt.month,
+            ultimaDt.day,
+          );
           if (hoy.difference(ultimoDia).inDays == 0) {
             _rachaActualizadaHoy = true;
             return;
@@ -448,7 +481,11 @@ class _PracticaScreenState extends State<PracticaScreen> {
         if (ultimaDt == null) {
           nuevaRacha = 1;
         } else {
-          final ultimoDia = DateTime(ultimaDt.year, ultimaDt.month, ultimaDt.day);
+          final ultimoDia = DateTime(
+            ultimaDt.year,
+            ultimaDt.month,
+            ultimaDt.day,
+          );
           final dias = hoy.difference(ultimoDia).inDays;
           nuevaRacha = dias == 1 ? ((data['racha'] ?? 0) as int) + 1 : 1;
         }
@@ -465,89 +502,148 @@ class _PracticaScreenState extends State<PracticaScreen> {
   }
 
   // ─── Dificultad según grado + nivel ───────────────────────────────────────
+  //
+  // Fácil:   1–15   · opciones alejadas (delta ±4–10)
+  // Normal:  1–50   · opciones moderadas (delta ±3–8)
+  // Difícil: 1–200  · 3 operandos · opciones muy cercanas (delta ±1–3)
+  //
   ({int max, int base}) get _rangos {
-    // Primero aplica el nivel de dificultad
     int maxBase = switch (widget.nivelDificultad) {
-      NivelDificultad.facil => 10,
-      NivelDificultad.normal => 100,
-      NivelDificultad.dificil => 1000,
+      NivelDificultad.facil => 15,
+      NivelDificultad.normal => 50,
+      NivelDificultad.dificil => 200,
     };
-
-    // Luego ajusta según el grado actual
+    // Reducción por grado bajo
     switch (_gradoActual) {
       case 4:
-        return (max: (maxBase * 0.5).toInt(), base: 1);
+        return (max: (maxBase * 0.55).toInt().clamp(5, maxBase), base: 1);
       case 3:
-        return (max: (maxBase * 0.4).toInt(), base: 1);
+        return (max: (maxBase * 0.45).toInt().clamp(5, maxBase), base: 1);
       case 2:
-        return (max: (maxBase * 0.3).toInt(), base: 1);
+        return (max: (maxBase * 0.35).toInt().clamp(5, maxBase), base: 1);
       default:
         return (max: maxBase, base: 1);
     }
   }
 
+  // Rangos para tabla de multiplicar según dificultad
   ({int maxA, int maxB}) get _rangosMult {
+    final base = switch (widget.nivelDificultad) {
+      NivelDificultad.facil => (maxA: 5, maxB: 5),
+      NivelDificultad.normal => (maxA: 9, maxB: 9),
+      NivelDificultad.dificil => (maxA: 15, maxB: 12),
+    };
+    // Reducción por grado bajo
     switch (_gradoActual) {
-      case 4:
-        return (maxA: 12, maxB: 12);
-      case 3:
-        return (maxA: 10, maxB: 10);
       case 2:
-        return (maxA: 7, maxB: 7);
+        return (
+          maxA: (base.maxA * 0.5).toInt().clamp(3, base.maxA),
+          maxB: (base.maxB * 0.5).toInt().clamp(3, base.maxB),
+        );
+      case 3:
+        return (
+          maxA: (base.maxA * 0.7).toInt().clamp(4, base.maxA),
+          maxB: (base.maxB * 0.7).toInt().clamp(4, base.maxB),
+        );
       default:
-        return (maxA: 5, maxB: 5);
+        return base;
     }
   }
 
+  // Amplitud del delta para las opciones incorrectas según dificultad.
+  // Difícil → opciones muy cercanas a la correcta (más engañosas).
+  int get _deltaOpciones => switch (widget.nivelDificultad) {
+    NivelDificultad.facil => _random.nextInt(7) + 4, // ±4–10
+    NivelDificultad.normal => _random.nextInt(6) + 3, // ±3–8
+    NivelDificultad.dificil => _random.nextInt(3) + 1, // ±1–3
+  };
+
   // ─── Generador de preguntas ───────────────────────────────────────────────
   Map<String, Object> _generarPregunta() {
-    int a, b, respuesta;
-    String simbolo, preguntaStr;
+    int respuesta;
+    String preguntaStr;
     final rangos = _rangos;
+    final esDificil = widget.nivelDificultad == NivelDificultad.dificil;
 
     switch (widget.tema) {
+      // ── SUMAS ─────────────────────────────────────────────────────────────
       case TemaPractica.sumas:
-        a = _random.nextInt(rangos.max) + rangos.base;
-        b = _random.nextInt(rangos.max) + rangos.base;
-        respuesta = a + b;
-        simbolo = '+';
-        preguntaStr = '$a $simbolo $b = ?';
+        final a = _random.nextInt(rangos.max) + rangos.base;
+        final b = _random.nextInt(rangos.max) + rangos.base;
+        if (esDificil && _random.nextBool()) {
+          // 3 sumandos en difícil
+          final c = _random.nextInt(rangos.max ~/ 2) + rangos.base;
+          respuesta = a + b + c;
+          preguntaStr = '$a + $b + $c = ?';
+        } else {
+          respuesta = a + b;
+          preguntaStr = '$a + $b = ?';
+        }
         break;
+
+      // ── RESTAS ────────────────────────────────────────────────────────────
       case TemaPractica.restas:
-        b = _random.nextInt(rangos.max) + rangos.base;
-        a = b + _random.nextInt(rangos.max) + rangos.base;
-        respuesta = a - b;
-        simbolo = '-';
-        preguntaStr = '$a $simbolo $b = ?';
+        if (esDificil && _random.nextBool()) {
+          // a - b + c  (resultado siempre positivo)
+          final a = _random.nextInt(rangos.max) + rangos.max ~/ 2;
+          final b = _random.nextInt(rangos.max ~/ 2) + 1;
+          final c = _random.nextInt(rangos.max ~/ 3) + 1;
+          respuesta = a - b + c;
+          preguntaStr = '$a - $b + $c = ?';
+        } else {
+          final b = _random.nextInt(rangos.max) + rangos.base;
+          final a = b + _random.nextInt(rangos.max) + rangos.base;
+          respuesta = a - b;
+          preguntaStr = '$a - $b = ?';
+        }
         break;
+
+      // ── MULTIPLICACIÓN ────────────────────────────────────────────────────
       case TemaPractica.multiplicacion:
         final r = _rangosMult;
-        a = _random.nextInt(r.maxA) + 1;
-        b = _random.nextInt(r.maxB) + 1;
-        respuesta = a * b;
-        simbolo = 'x';
-        preguntaStr = '$a $simbolo $b = ?';
+        final a = _random.nextInt(r.maxA) + 1;
+        final b = _random.nextInt(r.maxB) + 1;
+        if (esDificil && _random.nextBool()) {
+          // (a × b) + c  en difícil
+          final c = _random.nextInt(10) + 1;
+          respuesta = a * b + c;
+          preguntaStr = '$a × $b + $c = ?';
+        } else {
+          respuesta = a * b;
+          preguntaStr = '$a × $b = ?';
+        }
         break;
+
+      // ── DIVISIÓN ──────────────────────────────────────────────────────────
       case TemaPractica.division:
         final r = _rangosMult;
-        b = _random.nextInt(r.maxB - 1) + 2;
-        respuesta = _random.nextInt(r.maxA) + 1;
-        a = b * respuesta;
-        simbolo = '/';
-        preguntaStr = '$a $simbolo $b = ?';
+        final b = _random.nextInt(r.maxB - 1) + 2;
+        final cociente = _random.nextInt(r.maxA) + 1;
+        final a = b * cociente;
+        respuesta = cociente;
+        if (esDificil && _random.nextBool()) {
+          // Dividendo más grande (a × k) / b en difícil
+          final k = _random.nextInt(3) + 2;
+          final bigA = b * cociente * k;
+          respuesta = cociente * k;
+          preguntaStr = '$bigA ÷ $b = ?';
+        } else {
+          preguntaStr = '$a ÷ $b = ?';
+        }
         break;
     }
 
+    // ── Generar 3 opciones incorrectas con delta acorde a la dificultad ──────
     final Set<int> incorrectas = {};
-    int intentos = 0;
-    while (incorrectas.length < 3 && intentos < 30) {
-      intentos++;
-      final delta = _random.nextInt(11) - 5;
-      final falsa = respuesta + delta;
-      if (falsa != respuesta && falsa > 0) {
-        incorrectas.add(falsa);
-      }
+    int tries = 0;
+    while (incorrectas.length < 3 && tries < 60) {
+      tries++;
+      final d = _deltaOpciones;
+      final signo = _random.nextBool() ? 1 : -1;
+      final falsa = respuesta + signo * d;
+      if (falsa != respuesta && falsa > 0) incorrectas.add(falsa);
     }
+    // Fallback si quedan huecos
     int extra = 1;
     while (incorrectas.length < 3) {
       final candidato = respuesta + extra;
@@ -615,15 +711,16 @@ class _PracticaScreenState extends State<PracticaScreen> {
     if (LocalStorageService.isGuest) {
       // ── Invitado: actualizar SharedPreferences ─────────────────────────
       await LocalStorageService.increment('aciertos', correcta ? 1 : 0);
-      await LocalStorageService.increment('errores',  correcta ? 0 : 1);
+      await LocalStorageService.increment('errores', correcta ? 0 : 1);
       await LocalStorageService.increment('intentos', 1);
       await LocalStorageService.increment('tiempo_total', 20);
       await LocalStorageService.incrementNested('temas.$tema.intentos', 1);
-      if (correcta) await LocalStorageService.incrementNested('temas.$tema.aciertos', 1);
-      if (puntosGanados > 0) await LocalStorageService.increment('puntos', puntosGanados);
+      if (correcta)
+        await LocalStorageService.incrementNested('temas.$tema.aciertos', 1);
+      if (puntosGanados > 0)
+        await LocalStorageService.increment('puntos', puntosGanados);
 
       await _actualizarRachaDias(null);
-
     } else {
       // ── Con cuenta: actualizar Firestore ────────────────────────────────
       final ref = FirebaseFirestore.instance
@@ -631,21 +728,23 @@ class _PracticaScreenState extends State<PracticaScreen> {
           .doc(_user!.uid);
 
       try {
-        await SyncService.wrap(() => ref.update({
-          'aciertos':          FieldValue.increment(correcta ? 1 : 0),
-          'errores':           FieldValue.increment(correcta ? 0 : 1),
-          'intentos':          FieldValue.increment(1),
-          'tiempo_total':      FieldValue.increment(20),
-          'temas.$tema.intentos': FieldValue.increment(1),
-          if (correcta) 'temas.$tema.aciertos': FieldValue.increment(1),
-          if (puntosGanados > 0) 'puntos': FieldValue.increment(puntosGanados),
-        }));
+        await SyncService.wrap(
+          () => ref.update({
+            'aciertos': FieldValue.increment(correcta ? 1 : 0),
+            'errores': FieldValue.increment(correcta ? 0 : 1),
+            'intentos': FieldValue.increment(1),
+            'tiempo_total': FieldValue.increment(20),
+            'temas.$tema.intentos': FieldValue.increment(1),
+            if (correcta) 'temas.$tema.aciertos': FieldValue.increment(1),
+            if (puntosGanados > 0)
+              'puntos': FieldValue.increment(puntosGanados),
+          }),
+        );
       } catch (e) {
         debugPrint('Error guardando respuesta: $e');
       }
 
       await _actualizarRachaDias(ref);
-
     }
   }
 
@@ -653,24 +752,34 @@ class _PracticaScreenState extends State<PracticaScreen> {
     if (nuevoGrado == _gradoActual || !mounted) return;
     final subio = nuevoGrado > _gradoActual;
     setState(() => _gradoActual = nuevoGrado);
-    final nombre = _nombresGrado.elementAtOrNull(nuevoGrado) ?? 'Nivel $nuevoGrado';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Row(children: [
-        Text(subio ? '🔥' : '💡', style: const TextStyle(fontSize: 18)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            subio ? '¡Subiste a $nombre!' : 'Ajustando dificultad a $nombre',
-            style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
-          ),
+    final nombre =
+        _nombresGrado.elementAtOrNull(nuevoGrado) ?? 'Nivel $nuevoGrado';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Text(subio ? '🔥' : '💡', style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                subio
+                    ? '¡Subiste a $nombre!'
+                    : 'Ajustando dificultad a $nombre',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
         ),
-      ]),
-      backgroundColor: subio ? Colors.green[700] : Colors.orange[700],
-      duration: const Duration(seconds: 2),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.all(12),
-    ));
+        backgroundColor: subio ? Colors.green[700] : Colors.orange[700],
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(12),
+      ),
+    );
   }
 
   // ─── Confirmar salida durante el juego ───────────────────────────────────
@@ -699,9 +808,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.danger,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             child: const Text(
               'Terminar',
               style: TextStyle(fontWeight: FontWeight.w600),
@@ -760,15 +867,16 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 child: Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.timer,
-                            color: Colors.white, size: 16),
+                        const Icon(Icons.timer, color: Colors.white, size: 16),
                         const SizedBox(width: 4),
                         Text(
                           '${_segundosRestantes}s',
@@ -815,7 +923,8 @@ class _PracticaScreenState extends State<PracticaScreen> {
         children: [
           // Header con ícono del tema
           Container(
-            width: 72, height: 72,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
               shape: BoxShape.circle,
@@ -826,14 +935,15 @@ class _PracticaScreenState extends State<PracticaScreen> {
           Text(
             tema.nombre,
             style: const TextStyle(
-              fontSize: 24, fontWeight: FontWeight.w800,
-              color: Color(0xFF1A1A1A),
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             '¿Cuánto tiempo quieres practicar?',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 28),
 
@@ -879,17 +989,24 @@ class _PracticaScreenState extends State<PracticaScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: AppColors.border,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.star_rounded, color: Colors.amber.shade600, size: 16),
+                Icon(
+                  Icons.star_rounded,
+                  color: Colors.amber.shade600,
+                  size: 16,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   'Cada acierto = 10 pts · Racha bonus extra',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -920,9 +1037,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
               minHeight: 8,
               backgroundColor: AppColors.border,
               valueColor: AlwaysStoppedAnimation<Color>(
-                _segundosRestantes <= 10
-                    ? AppColors.danger
-                    : color,
+                _segundosRestantes <= 10 ? AppColors.danger : color,
               ),
             ),
           ),
@@ -1044,8 +1159,9 @@ class _PracticaScreenState extends State<PracticaScreen> {
   // ─── Fase 3: Resultados ──────────────────────────────────────────────────
   Widget _buildResultados(Color color) {
     final total = _aciertos + _errores;
-    final precision =
-        total > 0 ? '${((_aciertos / total) * 100).toInt()}%' : '0%';
+    final precision = total > 0
+        ? '${((_aciertos / total) * 100).toInt()}%'
+        : '0%';
 
     String mensaje;
     IconData icono;
@@ -1158,10 +1274,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
                 const Expanded(
                   child: Text(
                     'Puntos ganados',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                   ),
                 ),
                 Text(
@@ -1182,8 +1295,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
             width: double.infinity,
             height: 50,
             child: ElevatedButton.icon(
-              onPressed: () =>
-                  setState(() => _fase = _Fase.seleccion),
+              onPressed: () => setState(() => _fase = _Fase.seleccion),
               icon: const Icon(Icons.replay),
               label: const Text(
                 'Jugar de nuevo',
@@ -1263,11 +1375,7 @@ class _BotonDuracion extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              icono,
-              color: destacado ? Colors.white : color,
-              size: 26,
-            ),
+            Icon(icono, color: destacado ? Colors.white : color, size: 26),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -1295,9 +1403,7 @@ class _BotonDuracion extends StatelessWidget {
             ),
             Icon(
               Icons.chevron_right,
-              color: destacado
-                  ? Colors.white
-                  : AppColors.textMuted,
+              color: destacado ? Colors.white : AppColors.textMuted,
             ),
           ],
         ),
@@ -1389,10 +1495,7 @@ class _StatGrande extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
-          ),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),
     );
@@ -1426,10 +1529,10 @@ class _TiempoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = destacado ? (colorDestacado ?? colorIcono) : Colors.white;
-    final textColor = destacado ? Colors.white : const Color(0xFF1A1A1A);
+    final textColor = destacado ? Colors.white : AppColors.textPrimary;
     final subColor = destacado
         ? Colors.white.withValues(alpha: 0.85)
-        : Colors.grey.shade500;
+        : AppColors.textSecondary;
 
     return GestureDetector(
       onTap: onTap,
@@ -1440,15 +1543,17 @@ class _TiempoCard extends StatelessWidget {
           color: bg,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: destacado ? Colors.transparent : Colors.grey.shade200,
+            color: destacado ? Colors.transparent : AppColors.border,
             width: 1.5,
           ),
           boxShadow: destacado
-              ? [BoxShadow(
-                  color: colorIcono.withValues(alpha: 0.30),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                )]
+              ? [
+                  BoxShadow(
+                    color: colorIcono.withValues(alpha: 0.30),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ]
               : [],
         ),
         child: Row(
@@ -1458,20 +1563,28 @@ class _TiempoCard extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 56, height: 56,
+                  width: 56,
+                  height: 56,
                   decoration: BoxDecoration(
                     color: destacado
                         ? Colors.white.withValues(alpha: 0.2)
                         : colorFondo,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(icono,
-                      color: destacado ? Colors.white : colorIcono, size: 28),
+                  child: Icon(
+                    icono,
+                    color: destacado ? Colors.white : colorIcono,
+                    size: 28,
+                  ),
                 ),
                 Positioned(
-                  bottom: -5, right: -8,
+                  bottom: -5,
+                  right: -8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: destacado ? Colors.white : colorIcono,
                       borderRadius: BorderRadius.circular(20),
@@ -1507,36 +1620,39 @@ class _TiempoCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
                             'Popular',
-                            style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     descripcion,
-                    style: TextStyle(fontSize: 12, color: subColor),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: textColor.withValues(alpha: 0.75),
+                    ),
                   ),
                 ],
               ),
             ),
             Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: destacado
-                  ? Colors.white.withValues(alpha: 0.7)
-                  : Colors.grey.shade400,
+              Icons.chevron_right_rounded,
+              color: textColor.withValues(alpha: 0.5),
             ),
           ],
         ),

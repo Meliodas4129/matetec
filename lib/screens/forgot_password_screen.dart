@@ -180,7 +180,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 Expanded(
                   child: Container(
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFAFAFA),
+                      color: AppColors.background,
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(32)),
                     ),
@@ -212,7 +212,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           TextFormField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A1A)),
+            style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Ingresa tu correo';
               if (!v.contains('@')) return 'Correo no válido';
@@ -221,20 +221,20 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             decoration: InputDecoration(
               hintText: 'ejemplo@correo.com',
               hintStyle:
-                  TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                  TextStyle(color: AppColors.textMuted, fontSize: 14),
               prefixIcon: Icon(Icons.email_outlined,
-                  size: 20, color: Colors.grey.shade500),
+                  size: 20, color: AppColors.textSecondary),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: AppColors.surfaceVariant,
               contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16, vertical: 16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.grey.shade200),
+                borderSide: BorderSide(color: AppColors.border),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: Colors.grey.shade200),
+                borderSide: BorderSide(color: AppColors.border),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -289,7 +289,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 '← Volver al inicio de sesión',
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey.shade500,
+                  color: AppColors.textSecondary,
                   decoration: TextDecoration.underline,
                 ),
               ),
@@ -320,7 +320,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         // Correo al que se envió
         const Text(
           'Enviamos un enlace a:',
-          style: TextStyle(fontSize: 14, color: Color(0xFF555555)),
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 6),
         Text(
@@ -373,8 +373,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             style: OutlinedButton.styleFrom(
               side: BorderSide(
                 color: _cooldown > 0
-                    ? Colors.grey.shade300
-                    : Colors.grey.shade400,
+                    ? AppColors.border
+                    : AppColors.textMuted,
                 width: 1.5,
               ),
               shape: RoundedRectangleBorder(
@@ -390,8 +390,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 : Icon(
                     Icons.refresh_rounded,
                     color: _cooldown > 0
-                        ? Colors.grey.shade400
-                        : const Color(0xFF444444),
+                        ? AppColors.textMuted
+                        : AppColors.textSecondary,
                   ),
             label: Text(
               _cooldown > 0
@@ -401,8 +401,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: _cooldown > 0
-                    ? Colors.grey.shade400
-                    : const Color(0xFF444444),
+                    ? AppColors.textMuted
+                    : AppColors.textSecondary,
               ),
             ),
           ),
@@ -440,7 +440,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF444444),
+          color: AppColors.textSecondary,
         ),
       );
 }
@@ -486,7 +486,7 @@ class _TipCard extends StatelessWidget {
                 Text(cuerpo,
                     style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: AppColors.textSecondary,
                         height: 1.4)),
               ],
             ),

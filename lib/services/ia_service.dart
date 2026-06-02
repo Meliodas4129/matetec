@@ -6,7 +6,7 @@ class IAService {
   // ⚠️ CAMBIA SEGÚN TU CASO:
 
   // 🌐 Flutter Web (Chrome)
-  static const String baseUrl = "http://localhost:5000";
+  static const String baseUrl = "http://192.168.75.126:5000";
 
   // 📱 Android Emulator
   // static const String baseUrl = "http://10.0.2.2:5000";

@@ -49,7 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final data = doc.data() ?? {};
 
         // Cuenta bloqueada
-        if ((data['bloqueado'] ?? false) as bool) {
+        if ((data['bloqueado'] as bool?) ?? false) {
           await FirebaseAuth.instance.signOut();
           if (!mounted) return;
           _showSnack(
@@ -210,7 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
           await docRef.update({'rol': 'admin'});
         }
         // Verificar si está bloqueado
-        if ((existingData['bloqueado'] ?? false) as bool) {
+        if ((existingData['bloqueado'] as bool?) ?? false) {
           await FirebaseAuth.instance.signOut();
           _showSnack(
             'Tu cuenta ha sido suspendida. Contacta al administrador.',
@@ -225,8 +225,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       final data = (await docRef.get()).data();
-      final grado = (data?['grado'] ?? 'Pendiente') as String;
-      final rol   = (data?['rol']   ?? 'estudiante') as String;
+      final grado = (data?['grado'] as String?) ?? 'Pendiente';
+      final rol   = (data?['rol'] as String?) ?? 'estudiante';
       // Admins no necesitan diagnóstico → van directo al home
       if (rol != 'admin' && (grado == 'Pendiente' || grado.isEmpty)) {
         Navigator.pushReplacement(
@@ -359,7 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Expanded(
                   child: Container(
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFAFAFA),
+                      color: AppColors.background,
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(32)),
                     ),
@@ -393,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined,
                                 size: 20,
-                                color: Colors.grey.shade500,
+                                color: AppColors.textSecondary,
                               ),
                               onPressed: () => setState(
                                   () => _obscurePass = !_obscurePass),
@@ -471,7 +471,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             children: [
                               Expanded(
                                   child:
-                                      Divider(color: Colors.grey.shade300)),
+                                      Divider(color: AppColors.border)),
                               Padding(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 14),
@@ -479,12 +479,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                   'o',
                                   style: TextStyle(
                                       fontSize: 13,
-                                      color: Colors.grey.shade500),
+                                      color: AppColors.textSecondary),
                                 ),
                               ),
                               Expanded(
                                   child:
-                                      Divider(color: Colors.grey.shade300)),
+                                      Divider(color: AppColors.border)),
                             ],
                           ),
 
@@ -506,7 +506,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 '¿No tienes cuenta? ',
                                 style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.grey.shade600),
+                                    color: AppColors.textSecondary),
                               ),
                               GestureDetector(
                                 onTap: _loading
@@ -546,7 +546,7 @@ class _LoginScreenState extends State<LoginScreen> {
         style: const TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF444444),
+          color: AppColors.textSecondary,
         ),
       );
 
@@ -562,23 +562,23 @@ class _LoginScreenState extends State<LoginScreen> {
       controller: controller,
       obscureText: obscure,
       keyboardType: keyboard,
-      style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A1A)),
+      style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-        prefixIcon: Icon(icon, size: 20, color: Colors.grey.shade500),
+        hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 14),
+        prefixIcon: Icon(icon, size: 20, color: AppColors.textSecondary),
         suffixIcon: suffix,
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surfaceVariant,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -604,9 +604,9 @@ class _GoogleButton extends StatelessWidget {
       child: OutlinedButton(
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: const Color(0xFF444444),
-          side: BorderSide(color: Colors.grey.shade300, width: 1.5),
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textSecondary,
+          side: BorderSide(color: AppColors.border, width: 1.5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -629,7 +629,7 @@ class _GoogleButton extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF333333)),
+                        color: AppColors.textPrimary),
                   ),
                 ],
               ),
@@ -646,7 +646,7 @@ class _GoogleLogo extends StatelessWidget {
       height: 22,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
         color: Colors.white,
       ),
       child: const Center(
