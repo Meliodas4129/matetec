@@ -8,6 +8,7 @@ import '../services/ia_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/sync_service.dart';
+import '../services/sound_service.dart';
 import '../theme/app_theme.dart';
 
 /// Tema disponible para practicar
@@ -739,6 +740,13 @@ class _PracticaScreenState extends State<PracticaScreen> {
     final correcta = _pregunta!['correcta'] as String;
     final esCorrecta = opcion == correcta;
 
+    // Sonido + vibración de feedback
+    if (esCorrecta) {
+      SoundService.correcto();
+    } else {
+      SoundService.error();
+    }
+
     setState(() {
       _seleccionada = opcion;
       _respondido = true;
@@ -820,6 +828,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
   void _mostrarCambioNivel(int nuevoGrado) {
     if (nuevoGrado == _gradoActual || !mounted) return;
     final subio = nuevoGrado > _gradoActual;
+    if (subio) SoundService.nivel();
     setState(() => _gradoActual = nuevoGrado);
     final nombre =
         _nombresGrado.elementAtOrNull(nuevoGrado) ?? 'Nivel $nuevoGrado';

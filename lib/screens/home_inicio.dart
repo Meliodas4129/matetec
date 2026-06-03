@@ -6,7 +6,9 @@ import '../services/local_storage_service.dart';
 import '../services/notification_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/sync_indicator.dart';
+import '../widgets/avatar_view.dart';
 import 'admin_screen.dart';
+import 'tienda_screen.dart';
 import 'login_screen.dart';
 import 'welcome_screen.dart';
 import 'diagnostico_screen.dart';
@@ -41,6 +43,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final String rol = data["rol"] ?? "estudiante";
     final String ciudad = data["ciudad"] ?? "";
     final String avatar = data["avatar"] ?? "";
+    final String marco = data["marco"] ?? "";
+    final String insignia = data["insignia"] ?? "";
+    final List<String> comprados =
+        ((data["comprados"] as List?)?.cast<String>()) ?? const [];
     final int gradoNum = data["grado_num"] ?? 1;
     final int aciertos = data["aciertos"] ?? 0;
     final int intentos = data["intentos"] ?? 1;
@@ -62,6 +68,8 @@ class _HomeScreenState extends State<HomeScreen> {
         racha: racha,
         puntos: puntos,
         avatar: avatar,
+        marco: marco,
+        insignia: insignia,
         temasDesbloqueados: temasDesbloqueados,
         temas: temas,
       ),
@@ -72,6 +80,15 @@ class _HomeScreenState extends State<HomeScreen> {
         temas: temas,
       ),
       _Retos(retos: retosDiarios, puntos: puntos),
+      TiendaTab(
+        puntos: puntos,
+        comprados: comprados,
+        avatar: avatar,
+        marco: marco,
+        insignia: insignia,
+        isGuest: isGuest,
+        nombre: nombre,
+      ),
       _Perfil(
         nombre: nombre,
         grado: grado,
@@ -81,6 +98,8 @@ class _HomeScreenState extends State<HomeScreen> {
         puntos: puntos,
         ciudad: ciudad,
         avatar: avatar,
+        marco: marco,
+        insignia: insignia,
         isGuest: isGuest,
         isAdmin: rol == 'admin',
       ),
@@ -174,6 +193,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: 'Retos',
                 ),
                 BottomNavigationBarItem(
+                  icon: Icon(Icons.storefront_outlined),
+                  activeIcon: Icon(Icons.storefront),
+                  label: 'Tienda',
+                ),
+                BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline),
                   activeIcon: Icon(Icons.person),
                   label: 'Perfil',
@@ -197,6 +221,8 @@ class _Inicio extends StatelessWidget {
   final int racha;
   final int puntos;
   final String avatar;
+  final String marco;
+  final String insignia;
   final List<String> temasDesbloqueados;
   final Map<String, dynamic> temas;
 
@@ -207,6 +233,8 @@ class _Inicio extends StatelessWidget {
     required this.racha,
     required this.puntos,
     this.avatar = '',
+    this.marco = '',
+    this.insignia = '',
     required this.temasDesbloqueados,
     required this.temas,
   });
@@ -321,23 +349,13 @@ class _Inicio extends StatelessWidget {
               // ── Indicador de sincronización con la nube ───────────────
               const SyncIndicator(),
               const SizedBox(width: 8),
-              CircleAvatar(
+              AvatarView(
+                avatar: avatar,
+                marco: marco,
+                insignia: insignia,
                 radius: 24,
-                backgroundColor: avatar.isNotEmpty
-                    ? const Color(0xFFFFCDD2)
-                    : const Color(0xFFE53935),
-                child: avatar.isNotEmpty
-                    ? Text(avatar, style: const TextStyle(fontSize: 26))
-                    : Text(
-                        nombre.isNotEmpty
-                            ? nombre.substring(0, 1).toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.surface,
-                        ),
-                      ),
+                fallback:
+                    nombre.isNotEmpty ? nombre.substring(0, 1).toUpperCase() : '?',
               ),
             ],
           ),
@@ -1576,6 +1594,8 @@ class _Perfil extends StatelessWidget {
   final int puntos;
   final String ciudad;
   final String avatar;
+  final String marco;
+  final String insignia;
   final bool isGuest;
   final bool isAdmin;
 
@@ -1588,6 +1608,8 @@ class _Perfil extends StatelessWidget {
     required this.puntos,
     this.ciudad = "",
     this.avatar = "",
+    this.marco = "",
+    this.insignia = "",
     this.isGuest = false,
     this.isAdmin = false,
   });
@@ -1607,21 +1629,14 @@ class _Perfil extends StatelessWidget {
             ),
             child: Row(
               children: [
-                CircleAvatar(
+                AvatarView(
+                  avatar: avatar,
+                  marco: marco,
+                  insignia: insignia,
                   radius: 28,
-                  backgroundColor: const Color(0xFFFFCDD2),
-                  child: avatar.isNotEmpty
-                      ? Text(avatar, style: const TextStyle(fontSize: 30))
-                      : Text(
-                          nombre.isNotEmpty
-                              ? nombre.substring(0, 1).toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFB71C1C),
-                          ),
-                        ),
+                  fallback: nombre.isNotEmpty
+                      ? nombre.substring(0, 1).toUpperCase()
+                      : '?',
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1693,6 +1708,8 @@ class _Perfil extends StatelessWidget {
                     email: email,
                     ciudad: ciudad,
                     avatar: avatar,
+                    marco: marco,
+                    insignia: insignia,
                   ),
                 ),
               );

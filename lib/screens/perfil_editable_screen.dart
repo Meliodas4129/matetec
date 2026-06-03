@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/avatar_view.dart';
 
 /// Avatares disponibles (emojis). No necesitan Firebase Storage:
 /// se guarda solo el emoji elegido en Firestore (gratis).
@@ -16,6 +17,8 @@ class PerfilEditableScreen extends StatefulWidget {
   final String email;
   final String? ciudad;
   final String? avatar;
+  final String marco;
+  final String insignia;
 
   const PerfilEditableScreen({
     super.key,
@@ -23,6 +26,8 @@ class PerfilEditableScreen extends StatefulWidget {
     required this.email,
     this.ciudad,
     this.avatar,
+    this.marco = '',
+    this.insignia = '',
   });
 
   @override
@@ -213,24 +218,14 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
                 onTap: _elegirAvatar,
                 child: Stack(
                   children: [
-                    CircleAvatar(
+                    AvatarView(
+                      avatar: _avatar ?? '',
+                      marco: widget.marco,
+                      insignia: widget.insignia,
                       radius: 60,
-                      backgroundColor: const Color(0xFFFFCDD2),
-                      child: _avatar != null && _avatar!.isNotEmpty
-                          ? Text(
-                              _avatar!,
-                              style: const TextStyle(fontSize: 56),
-                            )
-                          : Text(
-                              widget.nombre.isNotEmpty
-                                  ? widget.nombre.substring(0, 1).toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontSize: 48,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFB71C1C),
-                              ),
-                            ),
+                      fallback: widget.nombre.isNotEmpty
+                          ? widget.nombre.substring(0, 1).toUpperCase()
+                          : '?',
                     ),
                     Positioned(
                       bottom: 0,
