@@ -42,9 +42,9 @@ void main() async {
   final notifCfg = await NotificationService.leerConfig();
   if (notifCfg.activo) {
     await NotificationService.programarRecordatorioDiario(
-      hora:    notifCfg.hora,
-      minuto:  notifCfg.minuto,
-      activo:  true,
+      hora: notifCfg.hora,
+      minuto: notifCfg.minuto,
+      activo: true,
     );
   }
   if (notifCfg.rachaActivo) {
@@ -74,25 +74,25 @@ void main() async {
             'sumas': {
               'aciertos': 0,
               'intentos': 0,
-              'eval_desde_intentos': 10,
+              'eval_desde_intentos': 5,
               'eval_aprobada': false,
             },
             'restas': {
               'aciertos': 0,
               'intentos': 0,
-              'eval_desde_intentos': 10,
+              'eval_desde_intentos': 5,
               'eval_aprobada': false,
             },
             'multiplicacion': {
               'aciertos': 0,
               'intentos': 0,
-              'eval_desde_intentos': 10,
+              'eval_desde_intentos': 5,
               'eval_aprobada': false,
             },
             'division': {
               'aciertos': 0,
               'intentos': 0,
-              'eval_desde_intentos': 10,
+              'eval_desde_intentos': 5,
               'eval_aprobada': false,
             },
           },
