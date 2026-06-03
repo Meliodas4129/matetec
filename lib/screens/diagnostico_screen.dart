@@ -155,40 +155,39 @@ class _DiagnosticoScreenState extends State<DiagnosticoScreen> {
       return;
     }
 
-    // ── Diagnóstico inicial: guardar resultado ────────────────────────────
+    // ── Diagnóstico inicial: SOLO fija el nivel ───────────────────────────
+    // El diagnóstico NO debe contar como práctica: las estadísticas de
+    // Progreso/Perfil arrancan en cero y solo se llenan con la práctica real.
+    const temasEnCero = {
+      'sumas':          {'aciertos': 0, 'intentos': 0},
+      'restas':         {'aciertos': 0, 'intentos': 0},
+      'multiplicacion': {'aciertos': 0, 'intentos': 0},
+      'division':       {'aciertos': 0, 'intentos': 0},
+    };
+
     if (LocalStorageService.isGuest) {
       // Invitado → guardar en local
       await LocalStorageService.saveData({
         ...LocalStorageService.getData(),
         'grado': grado,
         'grado_num': gradoNum,
-        'aciertos': _aciertos,
-        'errores': _errores,
-        'intentos': _preguntas.length,
-        'tiempo_total': _preguntas.length * 20.0,
-        'temas': {
-          'sumas':          {'aciertos': _aciertosPorTipo[0] ?? 0, 'intentos': _intentosPorTipo[0] ?? 0},
-          'restas':         {'aciertos': _aciertosPorTipo[1] ?? 0, 'intentos': _intentosPorTipo[1] ?? 0},
-          'multiplicacion': {'aciertos': _aciertosPorTipo[2] ?? 0, 'intentos': _intentosPorTipo[2] ?? 0},
-          'division':       {'aciertos': _aciertosPorTipo[3] ?? 0, 'intentos': _intentosPorTipo[3] ?? 0},
-        },
+        'aciertos': 0,
+        'errores': 0,
+        'intentos': 0,
+        'tiempo_total': 0.0,
+        'temas': temasEnCero,
       });
     } else {
       // Usuario con cuenta → guardar en Firestore
       final user = FirebaseAuth.instance.currentUser!;
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'aciertos':    _aciertos,
-        'errores':     _errores,
-        'intentos':    _preguntas.length,
-        'tiempo_total': _preguntas.length * 20.0,
+        'aciertos':    0,
+        'errores':     0,
+        'intentos':    0,
+        'tiempo_total': 0.0,
         'grado':       grado,
         'grado_num':   gradoNum,
-        'temas': {
-          'sumas':          {'aciertos': 0, 'intentos': 0},
-          'restas':         {'aciertos': 0, 'intentos': 0},
-          'multiplicacion': {'aciertos': 0, 'intentos': 0},
-          'division':       {'aciertos': 0, 'intentos': 0},
-        },
+        'temas': temasEnCero,
       });
     }
 

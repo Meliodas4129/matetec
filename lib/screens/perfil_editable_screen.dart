@@ -1,21 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
+/// Avatares disponibles (emojis). No necesitan Firebase Storage:
+/// se guarda solo el emoji elegido en Firestore (gratis).
+const List<String> kAvatares = [
+  '🦊', '🐼', '🐶', '🐱',
+  '🦁', '🐵', '🐸', '🦄',
+  '🐯', '🐨', '🐰', '🐧',
+  '🐙', '🐢', '🐝', '🦉',
+];
 
 class PerfilEditableScreen extends StatefulWidget {
   final String nombre;
   final String email;
   final String? ciudad;
-  final String? fotoUrl;
+  final String? avatar;
 
   const PerfilEditableScreen({
     super.key,
     required this.nombre,
     required this.email,
     this.ciudad,
-    this.fotoUrl,
+    this.avatar,
   });
 
   @override
@@ -28,12 +35,14 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
   bool _guardando = false;
   String? _mensaje;
   bool _exito = false;
+  String? _avatar; // emoji elegido
 
   @override
   void initState() {
     super.initState();
     _nombreCtrl = TextEditingController(text: widget.nombre);
     _ciudadCtrl = TextEditingController(text: widget.ciudad ?? '');
+    _avatar = widget.avatar;
   }
 
   @override
@@ -63,14 +72,12 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
         throw Exception('Usuario no autenticado');
       }
 
-      // Actualizar en Firestore
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
         'nombre': _nombreCtrl.text.trim(),
         'ciudad': _ciudadCtrl.text.trim(),
         'ultimaActualizacion': FieldValue.serverTimestamp(),
       });
 
-      // Actualizar displayName en Firebase Auth
       await user.updateDisplayName(_nombreCtrl.text.trim());
 
       setState(() {
@@ -78,99 +85,6 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
         _exito = true;
       });
 
-      // Cerrar después de 2 segundos
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) {
-        Navigator.pop(context, true); // Retorna true para refrescar datos
-      }
-    } catch (e) {
-      setState(() {
-        _mensaje = '❌ Error: ${e.toString()}';
-        _exito = false;
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _guardando = false);
-      }
-    }
-  }
-
-  void _mostrarDialogoFoto() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('📸 Cambiar Foto'),
-        content: const Text('¿De dónde quieres subir tu foto?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _seleccionarFoto(ImageSource.gallery);
-            },
-            child: const Text('📱 Galería'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _seleccionarFoto(ImageSource.camera);
-            },
-            child: const Text('📷 Cámara'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _seleccionarFoto(ImageSource source) async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? photo = await picker.pickImage(
-        source: source,
-        imageQuality: 80,
-        maxWidth: 512,
-        maxHeight: 512,
-      );
-
-      if (photo == null) return;
-
-      setState(() {
-        _guardando = true;
-        _mensaje = '⬆️ Subiendo foto...';
-        _exito = false;
-      });
-
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        throw Exception('Usuario no autenticado');
-      }
-
-      // Subir a Firebase Storage
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('perfiles/${user.uid}/foto.jpg');
-
-      final bytes = await photo.readAsBytes();
-      await storageRef.putData(bytes);
-
-      // Obtener URL de descarga
-      final url = await storageRef.getDownloadURL();
-
-      // Actualizar en Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({'fotoUrl': url});
-
-      setState(() {
-        _mensaje = '✅ Foto actualizada correctamente';
-        _exito = true;
-      });
-
-      // Cerrar después de 2 segundos
       await Future.delayed(const Duration(seconds: 2));
       if (mounted) {
         Navigator.pop(context, true);
@@ -187,6 +101,100 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
     }
   }
 
+  // ── Selector de avatar (bottom sheet) ──────────────────────────────────────
+  void _elegirAvatar() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade700,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Elige tu avatar',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 18),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 4,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              children: kAvatares.map((emoji) {
+                final seleccionado = emoji == _avatar;
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _guardarAvatar(emoji);
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFCDD2),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: seleccionado
+                            ? const Color(0xFFE53935)
+                            : Colors.transparent,
+                        width: 3,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(emoji, style: const TextStyle(fontSize: 30)),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _guardarAvatar(String emoji) async {
+    setState(() {
+      _avatar = emoji;
+      _mensaje = null;
+    });
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return; // invitado: solo vista previa
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'avatar': emoji});
+      setState(() {
+        _mensaje = '✅ Avatar actualizado';
+        _exito = true;
+      });
+    } catch (e) {
+      setState(() {
+        _mensaje = '❌ No se pudo guardar el avatar: ${e.toString()}';
+        _exito = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -199,36 +207,29 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // FOTO DE PERFIL
+            // AVATAR
             Center(
               child: GestureDetector(
-                onTap: _mostrarDialogoFoto,
+                onTap: _elegirAvatar,
                 child: Stack(
                   children: [
                     CircleAvatar(
                       radius: 60,
                       backgroundColor: const Color(0xFFFFCDD2),
-                      child: widget.fotoUrl != null &&
-                              widget.fotoUrl!.isNotEmpty
-                          ? ClipOval(
-                              child: Image.network(
-                                widget.fotoUrl!,
-                                fit: BoxFit.cover,
-                                width: 120,
-                                height: 120,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Color(0xFFB71C1C),
-                                  );
-                                },
-                              ),
+                      child: _avatar != null && _avatar!.isNotEmpty
+                          ? Text(
+                              _avatar!,
+                              style: const TextStyle(fontSize: 56),
                             )
-                          : Icon(
-                              Icons.person,
-                              size: 60,
-                              color: const Color(0xFFB71C1C),
+                          : Text(
+                              widget.nombre.isNotEmpty
+                                  ? widget.nombre.substring(0, 1).toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFB71C1C),
+                              ),
                             ),
                     ),
                     Positioned(
@@ -247,7 +248,7 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
                         ),
                         padding: const EdgeInsets.all(8),
                         child: const Icon(
-                          Icons.camera_alt,
+                          Icons.edit,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -259,7 +260,7 @@ class _PerfilEditableScreenState extends State<PerfilEditableScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Toca para cambiar foto',
+              'Toca para elegir avatar',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 32),

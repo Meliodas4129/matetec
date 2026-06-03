@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Reglas de Firebase Storage para MateTec
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Fotos de perfil: perfiles/{uid}/foto.jpg
+    // - Cualquiera puede VER las fotos (para mostrarlas en la app).
+    // - Solo el dueño autenticado puede SUBIR/REEMPLAZAR su propia foto,
+    //   y debe ser una imagen menor a 5 MB.
+    match /perfiles/{userId}/{archivo} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Todo lo demás queda bloqueado por defecto.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

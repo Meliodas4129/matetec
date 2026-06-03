@@ -14,7 +14,7 @@ import '../theme/app_theme.dart';
 enum TemaPractica { sumas, restas, multiplicacion, division }
 
 /// Nivel de dificultad
-enum NivelDificultad { facil, normal, dificil }
+enum NivelDificultad { facil, normal, dificil, experto }
 
 extension NivelDificultadX on NivelDificultad {
   String get label {
@@ -25,17 +25,21 @@ extension NivelDificultadX on NivelDificultad {
         return '🟡 Normal';
       case NivelDificultad.dificil:
         return '🔴 Difícil';
+      case NivelDificultad.experto:
+        return '🟣 Experto';
     }
   }
 
   String get descripcion {
     switch (this) {
       case NivelDificultad.facil:
-        return 'Números 1-15 · Opciones separadas';
+        return 'Números 1-20 · A veces 3 números';
       case NivelDificultad.normal:
-        return 'Números 1-50 · Opciones moderadas';
+        return 'Números 1-100 · 2-3 operandos';
       case NivelDificultad.dificil:
-        return 'Números grandes · 3 operandos · Opciones muy cercanas';
+        return 'Números grandes · 3 operandos · Opciones cercanas';
+      case NivelDificultad.experto:
+        return 'Números enormes · Operaciones mixtas · Opciones engañosas';
     }
   }
 }
@@ -208,7 +212,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
   }
 
   // Incrementa el contador de partidas completadas para este tema.
-  // Si la dificultad es Difícil, también incrementa partidas_dificil
+  // Si la dificultad es Difícil o Experto, también incrementa partidas_dificil
   // (que es el requisito para desbloquear la evaluación).
   Future<void> _contarPartida() async {
     if (_user == null) return;
@@ -217,7 +221,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
       final updates = <String, dynamic>{
         'temas.$tema.partidas': FieldValue.increment(1),
       };
-      if (widget.nivelDificultad == NivelDificultad.dificil) {
+      if (widget.nivelDificultad.index >= NivelDificultad.dificil.index) {
         updates['temas.$tema.partidas_dificil'] = FieldValue.increment(1);
       }
       await FirebaseFirestore.instance
@@ -503,27 +507,28 @@ class _PracticaScreenState extends State<PracticaScreen> {
 
   // ─── Dificultad según grado + nivel ───────────────────────────────────────
   //
-  // Fácil:   1–15   · opciones alejadas (delta ±4–10)
-  // Normal:  1–50   · opciones moderadas (delta ±3–8)
+  // Fácil:   1–20   · opciones alejadas (delta ±4–10)
+  // Normal:  1–100  · 2-3 operandos · opciones moderadas (delta ±3–8)
   // Difícil: 1–200  · 3 operandos · opciones muy cercanas (delta ±1–3)
+  // Experto: 1–600  · operaciones mixtas · opciones ±1
   //
   ({int max, int base}) get _rangos {
     int maxBase = switch (widget.nivelDificultad) {
-      NivelDificultad.facil => 15,
-      NivelDificultad.normal => 50,
+      NivelDificultad.facil => 20,
+      NivelDificultad.normal => 100,
       NivelDificultad.dificil => 200,
+      NivelDificultad.experto => 600,
     };
-    // Reducción por grado bajo
-    switch (_gradoActual) {
-      case 4:
-        return (max: (maxBase * 0.55).toInt().clamp(5, maxBase), base: 1);
-      case 3:
-        return (max: (maxBase * 0.45).toInt().clamp(5, maxBase), base: 1);
-      case 2:
-        return (max: (maxBase * 0.35).toInt().clamp(5, maxBase), base: 1);
-      default:
-        return (max: maxBase, base: 1);
-    }
+    // Reducción suave por grado bajo (la dificultad elegida sigue mandando,
+    // para que "Normal" realmente llegue a números altos y se sienta variado).
+    final factor = switch (_gradoActual) {
+      4 => 0.85,
+      3 => 0.75,
+      2 => 0.65,
+      _ => 1.0,
+    };
+    final maxAjustado = (maxBase * factor).round().clamp(10, maxBase);
+    return (max: maxAjustado, base: 1);
   }
 
   // Rangos para tabla de multiplicar según dificultad
@@ -532,6 +537,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
       NivelDificultad.facil => (maxA: 5, maxB: 5),
       NivelDificultad.normal => (maxA: 9, maxB: 9),
       NivelDificultad.dificil => (maxA: 15, maxB: 12),
+      NivelDificultad.experto => (maxA: 25, maxB: 15),
     };
     // Reducción por grado bajo
     switch (_gradoActual) {
@@ -556,6 +562,7 @@ class _PracticaScreenState extends State<PracticaScreen> {
     NivelDificultad.facil => _random.nextInt(7) + 4, // ±4–10
     NivelDificultad.normal => _random.nextInt(6) + 3, // ±3–8
     NivelDificultad.dificil => _random.nextInt(3) + 1, // ±1–3
+    NivelDificultad.experto => 1, // siempre ±1 (muy engañoso)
   };
 
   // ─── Generador de preguntas ───────────────────────────────────────────────
@@ -563,16 +570,40 @@ class _PracticaScreenState extends State<PracticaScreen> {
     int respuesta;
     String preguntaStr;
     final rangos = _rangos;
-    final esDificil = widget.nivelDificultad == NivelDificultad.dificil;
+    final nivel = widget.nivelDificultad;
+    final esExperto = nivel == NivelDificultad.experto;
+    // Probabilidad de usar una forma con más operandos (más variedad).
+    // Incluso Fácil y Normal varían seguido para que no se sienta repetitivo.
+    final double pVariante = switch (nivel) {
+      NivelDificultad.facil => 0.35,
+      NivelDificultad.normal => 0.60,
+      NivelDificultad.dificil => 0.80,
+      NivelDificultad.experto => 1.0,
+    };
+    final usarVariante = _random.nextDouble() < pVariante;
+
+    // Aleatorio en [1, max] respetando la base
+    int rnd(int max) => _random.nextInt(max < 1 ? 1 : max) + rangos.base;
 
     switch (widget.tema) {
       // ── SUMAS ─────────────────────────────────────────────────────────────
       case TemaPractica.sumas:
-        final a = _random.nextInt(rangos.max) + rangos.base;
-        final b = _random.nextInt(rangos.max) + rangos.base;
-        if (esDificil && _random.nextBool()) {
-          // 3 sumandos en difícil
-          final c = _random.nextInt(rangos.max ~/ 2) + rangos.base;
+        final a = rnd(rangos.max);
+        final b = rnd(rangos.max);
+        if (esExperto) {
+          // 3 o 4 sumandos con números grandes
+          final c = rnd(rangos.max);
+          if (_random.nextBool()) {
+            final d = rnd(rangos.max ~/ 2);
+            respuesta = a + b + c + d;
+            preguntaStr = '$a + $b + $c + $d = ?';
+          } else {
+            respuesta = a + b + c;
+            preguntaStr = '$a + $b + $c = ?';
+          }
+        } else if (usarVariante) {
+          // 3 sumandos
+          final c = rnd(rangos.max ~/ 2);
           respuesta = a + b + c;
           preguntaStr = '$a + $b + $c = ?';
         } else {
@@ -583,16 +614,32 @@ class _PracticaScreenState extends State<PracticaScreen> {
 
       // ── RESTAS ────────────────────────────────────────────────────────────
       case TemaPractica.restas:
-        if (esDificil && _random.nextBool()) {
+        if (esExperto) {
+          if (_random.nextBool()) {
+            // a - b - c  (siempre positivo)
+            final b = rnd(rangos.max ~/ 3);
+            final c = rnd(rangos.max ~/ 3);
+            final a = b + c + rnd(rangos.max); // garantiza resultado positivo
+            respuesta = a - b - c;
+            preguntaStr = '$a - $b - $c = ?';
+          } else {
+            // a - b + c
+            final a = rnd(rangos.max) + rangos.max ~/ 2;
+            final b = rnd(rangos.max ~/ 2);
+            final c = rnd(rangos.max ~/ 3);
+            respuesta = a - b + c;
+            preguntaStr = '$a - $b + $c = ?';
+          }
+        } else if (usarVariante) {
           // a - b + c  (resultado siempre positivo)
-          final a = _random.nextInt(rangos.max) + rangos.max ~/ 2;
-          final b = _random.nextInt(rangos.max ~/ 2) + 1;
-          final c = _random.nextInt(rangos.max ~/ 3) + 1;
+          final a = rnd(rangos.max) + rangos.max ~/ 2;
+          final b = rnd(rangos.max ~/ 2);
+          final c = rnd(rangos.max ~/ 3);
           respuesta = a - b + c;
           preguntaStr = '$a - $b + $c = ?';
         } else {
-          final b = _random.nextInt(rangos.max) + rangos.base;
-          final a = b + _random.nextInt(rangos.max) + rangos.base;
+          final b = rnd(rangos.max);
+          final a = b + rnd(rangos.max);
           respuesta = a - b;
           preguntaStr = '$a - $b = ?';
         }
@@ -603,8 +650,18 @@ class _PracticaScreenState extends State<PracticaScreen> {
         final r = _rangosMult;
         final a = _random.nextInt(r.maxA) + 1;
         final b = _random.nextInt(r.maxB) + 1;
-        if (esDificil && _random.nextBool()) {
-          // (a × b) + c  en difícil
+        if (esExperto) {
+          // (a × b) ± c con números mayores
+          final c = _random.nextInt(20) + 1;
+          if (_random.nextBool() && a * b > c) {
+            respuesta = a * b - c;
+            preguntaStr = '$a × $b - $c = ?';
+          } else {
+            respuesta = a * b + c;
+            preguntaStr = '$a × $b + $c = ?';
+          }
+        } else if (usarVariante) {
+          // (a × b) + c
           final c = _random.nextInt(10) + 1;
           respuesta = a * b + c;
           preguntaStr = '$a × $b + $c = ?';
@@ -620,14 +677,26 @@ class _PracticaScreenState extends State<PracticaScreen> {
         final b = _random.nextInt(r.maxB - 1) + 2;
         final cociente = _random.nextInt(r.maxA) + 1;
         final a = b * cociente;
-        respuesta = cociente;
-        if (esDificil && _random.nextBool()) {
-          // Dividendo más grande (a × k) / b en difícil
+        if (esExperto) {
+          // Dividendo enorme y a veces (a ÷ b) + c
+          final k = _random.nextInt(4) + 3; // ×3–6
+          final bigA = a * k;
+          if (_random.nextBool()) {
+            final c = _random.nextInt(15) + 1;
+            respuesta = cociente * k + c;
+            preguntaStr = '$bigA ÷ $b + $c = ?';
+          } else {
+            respuesta = cociente * k;
+            preguntaStr = '$bigA ÷ $b = ?';
+          }
+        } else if (usarVariante) {
+          // Dividendo más grande (a × k) ÷ b
           final k = _random.nextInt(3) + 2;
-          final bigA = b * cociente * k;
+          final bigA = a * k;
           respuesta = cociente * k;
           preguntaStr = '$bigA ÷ $b = ?';
         } else {
+          respuesta = cociente;
           preguntaStr = '$a ÷ $b = ?';
         }
         break;
@@ -1528,7 +1597,7 @@ class _TiempoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = destacado ? (colorDestacado ?? colorIcono) : Colors.white;
+    final bg = destacado ? (colorDestacado ?? colorIcono) : AppColors.surface;
     final textColor = destacado ? Colors.white : AppColors.textPrimary;
     final subColor = destacado
         ? Colors.white.withValues(alpha: 0.85)

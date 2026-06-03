@@ -40,7 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final String email = data["email"] ?? "";
     final String rol = data["rol"] ?? "estudiante";
     final String ciudad = data["ciudad"] ?? "";
-    final String fotoUrl = data["fotoUrl"] ?? "";
+    final String avatar = data["avatar"] ?? "";
     final int gradoNum = data["grado_num"] ?? 1;
     final int aciertos = data["aciertos"] ?? 0;
     final int intentos = data["intentos"] ?? 1;
@@ -61,6 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
         gradoNum: gradoNum,
         racha: racha,
         puntos: puntos,
+        avatar: avatar,
         temasDesbloqueados: temasDesbloqueados,
         temas: temas,
       ),
@@ -79,7 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
         racha: racha,
         puntos: puntos,
         ciudad: ciudad,
-        fotoUrl: fotoUrl,
+        avatar: avatar,
         isGuest: isGuest,
         isAdmin: rol == 'admin',
       ),
@@ -195,6 +196,7 @@ class _Inicio extends StatelessWidget {
   final int gradoNum;
   final int racha;
   final int puntos;
+  final String avatar;
   final List<String> temasDesbloqueados;
   final Map<String, dynamic> temas;
 
@@ -204,6 +206,7 @@ class _Inicio extends StatelessWidget {
     required this.gradoNum,
     required this.racha,
     required this.puntos,
+    this.avatar = '',
     required this.temasDesbloqueados,
     required this.temas,
   });
@@ -320,17 +323,21 @@ class _Inicio extends StatelessWidget {
               const SizedBox(width: 8),
               CircleAvatar(
                 radius: 24,
-                backgroundColor: const Color(0xFFE53935),
-                child: Text(
-                  nombre.isNotEmpty
-                      ? nombre.substring(0, 1).toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.surface,
-                  ),
-                ),
+                backgroundColor: avatar.isNotEmpty
+                    ? const Color(0xFFFFCDD2)
+                    : const Color(0xFFE53935),
+                child: avatar.isNotEmpty
+                    ? Text(avatar, style: const TextStyle(fontSize: 26))
+                    : Text(
+                        nombre.isNotEmpty
+                            ? nombre.substring(0, 1).toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.surface,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -401,7 +408,7 @@ class _Inicio extends StatelessWidget {
               crossAxisCount: 2,
               crossAxisSpacing: 14,
               mainAxisSpacing: 14,
-              childAspectRatio: 0.88,
+              childAspectRatio: 0.80,
             ),
             itemCount: _temasConfig.length,
             itemBuilder: (_, i) {
@@ -480,30 +487,34 @@ class _StatPill extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      valor,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                        height: 1.1,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: Text(
-                        sub,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppColors.textSecondary,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        valor,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                          height: 1.1,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Text(
+                          sub,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -624,7 +635,7 @@ class _TemaCardState extends State<_TemaCard> {
       SnackBar(
         content: Text(
           prereq.isNotEmpty
-              ? 'Aprueba la evaluación de $prereq para desbloquear $widget.nombre'
+              ? 'Aprueba la evaluación de $prereq para desbloquear ${widget.nombre}'
               : 'Completa los temas anteriores primero',
         ),
         backgroundColor: AppColors.textPrimary,
@@ -716,6 +727,8 @@ class _TemaCardState extends State<_TemaCard> {
               // Nombre del tema
               Text(
                 widget.nombre,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -729,7 +742,7 @@ class _TemaCardState extends State<_TemaCard> {
               // Subtítulo / estado
               if (!widget.desbloqueado)
                 Text(
-                  'Bloquado',
+                  'Bloqueado',
                   style: TextStyle(fontSize: 10, color: AppColors.textMuted),
                 )
               else if (_evalAprobada)
@@ -753,6 +766,8 @@ class _TemaCardState extends State<_TemaCard> {
               else
                 Text(
                   widget.subtitulo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
                 ),
 
@@ -801,6 +816,8 @@ class _TemaCardState extends State<_TemaCard> {
                   const SizedBox(height: 4),
                   Text(
                     '$_practicasParaEval partida${_practicasParaEval != 1 ? 's' : ''} en 🔴 Difícil para evaluación',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 9, color: AppColors.textSecondary),
                   ),
                 ],
@@ -1558,7 +1575,7 @@ class _Perfil extends StatelessWidget {
   final int racha;
   final int puntos;
   final String ciudad;
-  final String fotoUrl;
+  final String avatar;
   final bool isGuest;
   final bool isAdmin;
 
@@ -1570,7 +1587,7 @@ class _Perfil extends StatelessWidget {
     required this.racha,
     required this.puntos,
     this.ciudad = "",
-    this.fotoUrl = "",
+    this.avatar = "",
     this.isGuest = false,
     this.isAdmin = false,
   });
@@ -1593,16 +1610,18 @@ class _Perfil extends StatelessWidget {
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: const Color(0xFFFFCDD2),
-                  child: Text(
-                    nombre.isNotEmpty
-                        ? nombre.substring(0, 1).toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFFB71C1C),
-                    ),
-                  ),
+                  child: avatar.isNotEmpty
+                      ? Text(avatar, style: const TextStyle(fontSize: 30))
+                      : Text(
+                          nombre.isNotEmpty
+                              ? nombre.substring(0, 1).toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFB71C1C),
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -1673,7 +1692,7 @@ class _Perfil extends StatelessWidget {
                     nombre: nombre,
                     email: email,
                     ciudad: ciudad,
-                    fotoUrl: fotoUrl,
+                    avatar: avatar,
                   ),
                 ),
               );
@@ -1867,7 +1886,7 @@ class _DificultadSheet extends StatelessWidget {
     (
       nivel: NivelDificultad.facil,
       label: 'Fácil',
-      rango: 'Números del 1 al 10',
+      rango: 'Números 1 al 20 · a veces 3 números',
       icon: Icons.sentiment_satisfied_alt_rounded,
       color: AppColors.temaMult,
       fondo: AppColors.temaMultSoft,
@@ -1875,7 +1894,7 @@ class _DificultadSheet extends StatelessWidget {
     (
       nivel: NivelDificultad.normal,
       label: 'Normal',
-      rango: 'Números del 1 al 100',
+      rango: 'Números 1 al 100 · 2-3 operandos',
       icon: Icons.sentiment_neutral_rounded,
       color: AppColors.temaDiv,
       fondo: AppColors.temaDivSoft,
@@ -1883,10 +1902,18 @@ class _DificultadSheet extends StatelessWidget {
     (
       nivel: NivelDificultad.dificil,
       label: 'Difícil',
-      rango: 'Números del 1 al 1000',
+      rango: 'Números grandes · 3 operandos',
       icon: Icons.sentiment_very_dissatisfied_rounded,
       color: Color(0xFFE53935),
       fondo: AppColors.temaSumasSoft,
+    ),
+    (
+      nivel: NivelDificultad.experto,
+      label: 'Experto',
+      rango: 'Operaciones mixtas · muy difícil',
+      icon: Icons.local_fire_department_rounded,
+      color: Color(0xFF8E24AA),
+      fondo: Color(0x1F8E24AA),
     ),
   ];
 
@@ -1945,8 +1972,12 @@ class _DificultadSheet extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Tarjetas de dificultad
-          ...(_niveles.map(
+          // Tarjetas de dificultad (desplazable por si no caben)
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _niveles.map(
             (n) => Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: GestureDetector(
@@ -2004,7 +2035,10 @@ class _DificultadSheet extends StatelessWidget {
                 ),
               ),
             ),
-          )),
+                ).toList(),
+              ),
+            ),
+          ),
         ],
       ),
     );

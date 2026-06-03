@@ -1,18 +1,32 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
 
 class IAService {
-  // ⚠️ CAMBIA SEGÚN TU CASO:
+  // ── URL del servidor de IA ──────────────────────────────────────────────
+  //
+  // Ya NO hay que editar el código al cambiar de red. La URL se resuelve sola:
+  //
+  //  • Override manual (recomendado para celular físico):
+  //      flutter run --dart-define=IA_BASE_URL=http://192.168.1.50:5000
+  //  • Web / escritorio  → http://localhost:5000
+  //  • Emulador Android   → http://10.0.2.2:5000  (10.0.2.2 = el PC anfitrión)
+  //
+  // Para un celular físico SIEMPRE usa --dart-define con la IP de tu PC en la
+  // misma red WiFi (ipconfig / ifconfig), porque no se puede autodetectar.
+  static const String _override =
+      String.fromEnvironment('IA_BASE_URL', defaultValue: '');
 
-  // 🌐 Flutter Web (Chrome)
-  static const String baseUrl = "http://192.168.75.126:5000";
-
-  // 📱 Android Emulator
-  // static const String baseUrl = "http://10.0.2.2:5000";
-
-  // 📱 Celular físico (misma red WiFi que tu PC)
-  // static const String baseUrl = "http://192.168.X.X:5000";
+  static String get baseUrl {
+    if (_override.isNotEmpty) return _override;
+    if (kIsWeb) return 'http://localhost:5000';
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:5000';
+    }
+    return 'http://localhost:5000';
+  }
 
   /// Clasifica el nivel del alumno usando el modelo de IA.
   ///
